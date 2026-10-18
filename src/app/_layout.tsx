@@ -1,18 +1,16 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
-
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
-
-SplashScreen.preventAutoHideAsync();
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+import { AdsProvider } from '../features/game/ads';
+import { FeedbackProvider } from '../features/game/feedback-provider';
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+export default function Layout() {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <FeedbackProvider>
+      <AdsProvider>
+        <StatusBar style="light" />
+        <Stack
+          screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#111728' } }}
+        />
+      </AdsProvider>
+    </FeedbackProvider>
   );
 }

@@ -1,56 +1,40 @@
-# Welcome to your Expo app 👋
+# Sort and Roll
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A colourful water sort puzzle for iOS, Android and web, built with Expo SDK 58.
 
-## Get started
+Use Node 24 LTS (24.11 or newer; `.nvmrc` selects the locally available 24.21.0).
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```sh
+nvm use
+npm ci
+npm start
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+Tap a bottle, then a matching colour or empty bottle. Long-press a power-up for
+its explanation. Restart is free; progress and settings save independently per mode.
 
-### Other setup steps
+```sh
+npm run typecheck
+npm run lint
+npm run test:coverage
+npm run test:mutation
+npm run test:e2e:web
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Browser tests start Expo on port 8096. Install Chromium with
+`npx playwright install chromium` if required. New native dependencies require a
+fresh native development build; Expo Go compatibility depends on bundled modules.
 
-## Learn more
+See [the product spec](docs/product-spec.md) for agreed behaviour and remaining
+release work, and [AGENTS.md](AGENTS.md) for architecture and verification rules.
+The game includes its own offline music, liquid sound effects and soft haptics,
+with independent saved switches in Settings. Native development binaries made
+before the audio/SVG modules were installed need rebuilding. No EAS build is
+started by these changes.
 
-To learn more about developing your project with Expo, look at the following resources:
+The collection has 16 illustrated backgrounds with permanent level-based unlocks,
+including Halloween at 40 completions and Christmas at 80.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Google Mobile Ads is integrated with test ads by default. See [ad setup](docs/ads.md)
+for Sort and Roll’s own AdMob IDs and native testing. Do not reuse another
+application’s ad units or signing configuration.
