@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/branding/app-icon-1024.png",
-      "bundleIdentifier": "com.gpatatoukas.sort-and-roll"
+      "bundleIdentifier": "com.gpatatoukas.sort-and-roll",
+      "appleTeamId": "WT4KUM9ZSW"
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +19,7 @@
         "monochromeImage": "./assets/branding/android-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.gpatatoukas.sortandroll"
+      "package": "com.pixelpulse.sortandroll"
     },
     "web": {
       "output": "static",
@@ -54,6 +55,31 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "androidAds": {
+        "mode": "test",
+        "banner": "",
+        "rewarded": "",
+        "interstitial": "",
+        "privacyPolicyUrl": ""
+      },
+      "iosAds": {
+        "mode": "test",
+        "banner": "",
+        "rewarded": "",
+        "interstitial": "",
+        "privacyPolicyUrl": ""
+      },
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "298e9841-f0c2-4c65-85d0-2ae7d65b5fb4"
+      }
+    },
+    "owner": "gpatatoukas"
   }
 }

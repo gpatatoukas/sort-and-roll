@@ -1,9 +1,10 @@
 # Sort and Roll advertising
 
-Google Mobile Ads 17.3 is installed. Android and iOS use Google sample app/ad IDs
-by default. Development always selects test ad units. Web has no ads and cannot
-grant rewards. An older native binary without the module keeps playing without ads.
-Rebuild the native app before testing the SDK; Expo Go does not contain it.
+Google Mobile Ads 17.3 is installed. Development uses Google sample ad units. The
+`android-test` EAS profile creates an installable APK with test ads. The `production`
+profile builds a Play AAB with Sort & Roll live ad units on Android and iOS. Web has
+no ads and cannot grant rewards. Expo Go does not contain the native SDK; use an EAS
+build to test ads on a device.
 
 - A standard 320 × 50 banner appears below the power-up panel during play only.
 - A depleted power-up’s accessible label and bottom hint explain the exchange:
@@ -25,31 +26,26 @@ Rebuild the native app before testing the SDK; Expo Go does not contain it.
   prompt or permission bypass is implemented; IDFA-dependent advertising needs
   separate iOS release review. Audio and haptics pause during full-screen ads.
 
-## Own AdMob setup
+## Sort & Roll AdMob configuration
 
-Create separate Sort and Roll apps in AdMob for Android and iOS, with Banner,
-Rewarded and Interstitial units for each. Publish the consent message for each app.
-Do not select partner bidding when using AdMob directly.
+The production EAS profile contains the public Sort & Roll AdMob app and unit IDs:
 
-Provide these build environment variables for each platform, replacing ANDROID
-with IOS for Apple builds:
+- Android app: `ca-app-pub-2084024586103993~4553935558`
+- Android banner: `ca-app-pub-2084024586103993/8719666416`
+- Android rewarded: `ca-app-pub-2084024586103993/1736200529`
+- Android interstitial: `ca-app-pub-2084024586103993/5483873842`
+- iOS app: `ca-app-pub-2084024586103993~3240853881`
+- iOS banner: `ca-app-pub-2084024586103993/1743194522`
+- iOS rewarded: `ca-app-pub-2084024586103993/9294206475`
+- iOS interstitial: `ca-app-pub-2084024586103993/6995346196`
+- Privacy policy: `https://pixel-pulse.xyz/privacy`
 
-```
-ANDROID_ADS_MODE=live
-ANDROID_ADMOB_APP_ID=ca-app-pub-…~…
-ANDROID_ADMOB_BANNER_ID=ca-app-pub-…/…
-ANDROID_ADMOB_REWARDED_ID=ca-app-pub-…/…
-ANDROID_ADMOB_INTERSTITIAL_ID=ca-app-pub-…/…
-ANDROID_PRIVACY_POLICY_URL=https://your-site/privacy
-```
+All IDs are public client configuration, not credentials. Keep the Android app ID in
+sync with the Android app registered in AdMob. The `android-test` profile is for
+installable device testing and uses Google test ads; `production` is for store builds
+and requests live ads. Do not submit or publish a build until the store declarations,
+consent message and device testing are complete.
 
-Keep `ADS_MODE=test` until ready to release. Dynamic app config validates live IDs,
-rejects Block and Roll’s existing IDs/units, and requires HTTPS policy configuration.
-No EAS project, credentials or production build was created by this change.
-
-Before release: update the privacy policy to cover Sort and Roll, complete store
-ad/data disclosures, confirm publisher app-ads.txt and store website association,
-and test banners, successful/closed/failed rewarded ads, duplicate callbacks,
-interstitial cadence, consent refusal/revocation, offline operation, audio recovery
-and small-screen layout on rebuilt Android and iOS apps. Bundles and web tests do
-not establish physical-device behaviour or AdMob account readiness.
+EAS project linking and Android signing credentials are managed in the developer's
+Expo account. Google Play submission is configured separately and is not automated
+by these build profiles.

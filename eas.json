@@ -1,0 +1,41 @@
+{
+  "cli": {
+    "version": ">= 24.13.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "android-test": {
+      "distribution": "internal",
+      "environment": "preview",
+      "env": {
+        "ANDROID_ADS_MODE": "test",
+        "ANDROID_ADMOB_APP_ID": "ca-app-pub-3940256099942544~3347511713",
+        "ANDROID_PRIVACY_POLICY_URL": "https://pixel-pulse.xyz/privacy"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "environment": "production",
+      "env": {
+        "ANDROID_ADS_MODE": "live",
+        "ANDROID_ADMOB_APP_ID": "ca-app-pub-2084024586103993~4553935558",
+        "ANDROID_ADMOB_BANNER_ID": "ca-app-pub-2084024586103993/8719666416",
+        "ANDROID_ADMOB_REWARDED_ID": "ca-app-pub-2084024586103993/1736200529",
+        "ANDROID_ADMOB_INTERSTITIAL_ID": "ca-app-pub-2084024586103993/5483873842",
+        "ANDROID_PRIVACY_POLICY_URL": "https://pixel-pulse.xyz/privacy",
+        "IOS_ADS_MODE": "live",
+        "IOS_ADMOB_APP_ID": "ca-app-pub-2084024586103993~3240853881",
+        "IOS_ADMOB_BANNER_ID": "ca-app-pub-2084024586103993/1743194522",
+        "IOS_ADMOB_REWARDED_ID": "ca-app-pub-2084024586103993/9294206475",
+        "IOS_ADMOB_INTERSTITIAL_ID": "ca-app-pub-2084024586103993/6995346196",
+        "IOS_PRIVACY_POLICY_URL": "https://pixel-pulse.xyz/privacy"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  }
+}
