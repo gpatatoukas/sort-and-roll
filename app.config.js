@@ -68,6 +68,9 @@ module.exports = ({ config }) => {
     ...config,
     plugins: [
       ...plugins,
+      'expo-image',
+      'expo-status-bar',
+      ['expo-build-properties', { android: { enableMinifyInReleaseBuilds: false } }],
       ['react-native-google-mobile-ads', { ...appIds, delayAppMeasurementInit: true }],
     ],
     extra: { ...config.extra, ...runtime },

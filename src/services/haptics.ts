@@ -7,14 +7,14 @@ export function hapticCue(sound: Sound, enabled: boolean) {
   if (Platform.OS === 'android') {
     const pattern =
       sound === 'win'
-        ? [0, 12, 65, 18, 95, 24]
+        ? [0, 8, 75, 12, 110, 16]
         : sound === 'bottle'
-          ? [0, 10, 65, 16]
+          ? [0, 7, 80, 11]
           : sound === 'pour'
-            ? 12
+            ? 8
             : sound === 'invalid'
-              ? 8
-              : 7;
+              ? 5
+              : 5;
     Vibration.vibrate(pattern);
     return;
   }
