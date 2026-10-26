@@ -2,6 +2,12 @@
 
 # dependencies
 node_modules/
+coverage/
+reports/
+test-results/
+playwright-report/
+.stryker-tmp/
+.idea
 
 # Expo
 .expo/
@@ -42,8 +48,11 @@ example
 /ios
 /android
 
-coverage/
-reports/
-.stryker-tmp/
-test-results/
-playwright-report/
+# Local Play service-account and signing credentials
+/credentials/
+/google-play-service-account*.json
+
+# Firebase Hosting local cache
+.firebase/
+firebase-debug*.log
+firepit-log.txt
