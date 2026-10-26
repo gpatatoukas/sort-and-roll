@@ -105,7 +105,7 @@ describe('progress', () => {
     await expect(save(p)).rejects.toThrow('disk');
     await save(p);
     jest.mocked(AsyncStorage.getItem).mockResolvedValueOnce(JSON.stringify(p));
-    expect(await load()).toEqual(p);
+    expect(await load()).toEqual(rollover(p, new Date()));
   });
 });
 

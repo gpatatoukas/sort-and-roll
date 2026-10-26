@@ -25,6 +25,8 @@ export function BottleArt({
   shape,
   highlighted = false,
   transfer,
+  sealScale,
+  ringPulse,
 }: {
   bottle: BottleState;
   width: number;
@@ -32,6 +34,8 @@ export function BottleArt({
   shape: number;
   highlighted?: boolean;
   transfer?: LiquidTransfer;
+  sealScale?: Animated.Value;
+  ringPulse?: Animated.Value;
 }) {
   const p = useAppearance();
   const edge = highlighted ? p.accent : p.glassEdge;
@@ -216,24 +220,87 @@ export function BottleArt({
           }}
         />
         {bottle.lock !== null && (
-          <View style={styles.lock}>
-            <Text style={{ color: COLOURS[bottle.lock], fontSize: 24 }}>◆</Text>
-            <Text style={styles.lockText}>LOCK</Text>
+          <View pointerEvents="none" style={styles.lock}>
+            <View
+              style={[
+                styles.lockBadge,
+                {
+                  backgroundColor: p.dark ? '#102333f2' : '#25334bf2',
+                },
+              ]}
+            >
+              <View style={styles.padlock}>
+                <View style={[styles.shackle, { borderColor: COLOURS[bottle.lock] }]} />
+                <View style={[styles.lockBody, { backgroundColor: COLOURS[bottle.lock] }]}>
+                  <View style={styles.keyhole} />
+                </View>
+              </View>
+              <Text style={styles.lockText}>LOCKED</Text>
+              <View style={styles.lockNeed}>
+                <View
+                  style={[
+                    styles.lockDrop,
+                    {
+                      backgroundColor: COLOURS[bottle.lock],
+                      borderColor: '#ffffffb8',
+                    },
+                  ]}
+                />
+                <Text style={styles.lockNeedText}>
+                  {COLOUR_NAMES[bottle.lock].toUpperCase()}
+                </Text>
+              </View>
+            </View>
           </View>
         )}
         {complete(bottle) && (
-          <View
-            style={[
-              styles.seal,
-              {
-                backgroundColor: p.dark ? '#233a3aeb' : '#f0fff4e0',
-                borderWidth: 1.5,
-                borderColor: '#91dbb9',
-              },
-            ]}
-          >
-            <Text style={[styles.tick, { color: p.dark ? '#a4f0c9' : '#4f8276' }]}>✓</Text>
-          </View>
+          <>
+            {ringPulse && (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.sealRipple,
+                  {
+                    borderColor: COLOURS[bottle.water[0]],
+                    opacity: ringPulse.interpolate({
+                      inputRange: [0, 0.2, 1],
+                      outputRange: [0, 0.8, 0],
+                    }),
+                    transform: [
+                      {
+                        scale: ringPulse.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.65, 2.6],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              />
+            )}
+            <Animated.View
+              style={[
+                styles.seal,
+                {
+                  backgroundColor: p.dark ? '#233a3aeb' : '#f0fff4e0',
+                  borderWidth: 1.5,
+                  borderColor: '#91dbb9',
+                  transform: sealScale
+                    ? [
+                        {
+                          scale: sealScale.interpolate({
+                            inputRange: [0, 0.7, 1],
+                            outputRange: [0.5, 1.3, 1],
+                          }),
+                        },
+                      ]
+                    : undefined,
+                },
+              ]}
+            >
+              <Text style={[styles.tick, { color: p.dark ? '#a4f0c9' : '#4f8276' }]}>✓</Text>
+            </Animated.View>
+          </>
         )}
       </View>
     </View>
@@ -269,7 +336,10 @@ export function Bottle({
 }) {
   const p = useAppearance();
   const [motion] = useState(() => new Animated.Value(0));
+  const [sealScale] = useState(() => new Animated.Value(1));
+  const [ringPulse] = useState(() => new Animated.Value(0));
   const reduce = useRef(false);
+  const wasComplete = useRef(complete(bottle));
   useEffect(() => {
     void AccessibilityInfo.isReduceMotionEnabled().then((v) => {
       reduce.current = v;
@@ -288,6 +358,39 @@ export function Bottle({
     animation.start();
     return () => animation.stop();
   }, [selected, motion]);
+  useEffect(() => {
+    const isComplete = complete(bottle);
+    if (isComplete && !wasComplete.current) {
+      if (reduce.current) {
+        sealScale.setValue(1);
+        ringPulse.setValue(0);
+      } else {
+        sealScale.setValue(0);
+        ringPulse.setValue(0);
+        Animated.parallel([
+          Animated.spring(sealScale, {
+            toValue: 1,
+            friction: 4,
+            tension: 150,
+            useNativeDriver: true,
+          }),
+          Animated.sequence([
+            Animated.timing(ringPulse, {
+              toValue: 1,
+              duration: 230,
+              useNativeDriver: true,
+            }),
+            Animated.timing(ringPulse, {
+              toValue: 0,
+              duration: 460,
+              useNativeDriver: true,
+            }),
+          ]),
+        ]).start();
+      }
+    }
+    wasComplete.current = isComplete;
+  }, [bottle, ringPulse, sealScale]);
   const description = bottle.water
     .map((c, i) => (bottle.hidden.includes(i) ? 'hidden' : COLOUR_NAMES[c]))
     .join(', ');
@@ -309,6 +412,8 @@ export function Bottle({
           shape={shape}
           highlighted={selected || hinted}
           transfer={transfer}
+          sealScale={sealScale}
+          ringPulse={ringPulse}
         />
       </Animated.View>
       <View
@@ -371,11 +476,52 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#362b5066',
+    backgroundColor: '#101a2bb8',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  lockText: { fontSize: 9, color: '#fff', fontWeight: '800', letterSpacing: 1 },
+  lockBadge: {
+    minWidth: 58,
+    maxWidth: '100%',
+    paddingHorizontal: 4,
+    paddingVertical: 7,
+    borderRadius: 13,
+    alignItems: 'center',
+    gap: 3,
+    boxShadow: '0px 2px 8px #00000080',
+  },
+  padlock: { width: 23, height: 23, alignItems: 'center', justifyContent: 'flex-end' },
+  shackle: {
+    position: 'absolute',
+    top: 0,
+    width: 13,
+    height: 12,
+    borderWidth: 2.5,
+    borderBottomWidth: 0,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+  },
+  lockBody: {
+    width: 21,
+    height: 14,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  keyhole: { width: 3, height: 6, borderRadius: 2, backgroundColor: '#172135' },
+  lockText: { fontSize: 8, color: '#fff', fontWeight: '900', letterSpacing: 0.8 },
+  lockNeed: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  lockDrop: {
+    width: 8,
+    height: 8,
+    borderWidth: 1,
+    borderTopLeftRadius: 7,
+    borderTopRightRadius: 7,
+    borderBottomLeftRadius: 7,
+    borderBottomRightRadius: 1,
+    transform: [{ rotate: '45deg' }],
+  },
+  lockNeedText: { fontSize: 8, color: '#fff', fontWeight: '900', letterSpacing: 0.6 },
   seal: {
     position: 'absolute',
     top: '38%',
@@ -386,6 +532,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffffb0',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sealRipple: {
+    position: 'absolute',
+    top: '38%',
+    alignSelf: 'center',
+    width: 31,
+    height: 31,
+    borderRadius: 16,
+    borderWidth: 2,
   },
   tick: { color: '#4f8276', fontSize: 21, fontWeight: '800' },
 });

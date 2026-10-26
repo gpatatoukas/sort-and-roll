@@ -1,5 +1,6 @@
 import { View, Text } from 'react-native';
 import type { Background, Scene } from '../../config/backgrounds';
+import { useAppearance } from './appearance';
 function Motif({
   kind,
   size,
@@ -434,7 +435,9 @@ export function SceneDecor({
   background: Background;
   preview?: boolean;
 }) {
+  const appearance = useAppearance();
   const kind = background.id;
+  const colours = appearance.dark ? background.dark : background.light;
   return (
     <View
       pointerEvents="none"
@@ -447,9 +450,51 @@ export function SceneDecor({
         right: 0,
         bottom: 0,
         overflow: 'hidden',
-        opacity: preview ? 0.85 : 0.28,
       }}
     >
+      {!preview && (
+        <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
+          <View
+            style={{
+              position: 'absolute',
+              width: 390,
+              height: 390,
+              borderRadius: 200,
+              right: -190,
+              top: -190,
+              backgroundColor: `${colours[1]}26`,
+              boxShadow: `0px 0px 95px ${background.detail}55`,
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              width: 430,
+              height: 430,
+              borderRadius: 220,
+              left: -230,
+              bottom: -250,
+              backgroundColor: `${colours[0]}22`,
+              boxShadow: `0px 0px 105px ${background.ink}55`,
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              width: 230,
+              height: 230,
+              borderRadius: 120,
+              left: -125,
+              top: '32%',
+              backgroundColor: `${background.ink}14`,
+            }}
+          />
+        </View>
+      )}
+      <View
+        pointerEvents="none"
+        style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, opacity: preview ? 0.85 : 0.28 }}
+      >
       {kind !== 'studio' && (
         <>
           <View
@@ -537,6 +582,7 @@ export function SceneDecor({
           opacity: 0.1,
         }}
       />
+      </View>
     </View>
   );
 }

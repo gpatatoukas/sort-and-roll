@@ -7,14 +7,17 @@ bottle and a destination to pour the largest contiguous top-colour group that fi
 Only matching colours or empty bottles accept a pour. A finished bottle has four
 units of one colour. All starting puzzles have a solution without paid tools.
 
-- Relaxed: unlimited time and pours, no stars; mostly gentle puzzles.
-- Challenge: gradually more colours and bottles, hidden layers and matching-colour
-  locks; one to three stars for pour efficiency, never speed.
-- Daily Drop: the same date-seeded puzzle for every player, one completion per UTC
-  day, streak and a power-up reward. Restart after a failed approach remains free.
+- Journey: one continuous path that starts gently, reaches medium puzzles around
+  level 13, and introduces hard puzzles, hidden colours and matching-colour locks
+  from level 25. Earn one to three stars for pour efficiency, never speed.
+- Daily Challenge: the same date-seeded puzzle for every player, with hidden colours
+  and a matching-colour lock; one completion per UTC day, streak and a power-up
+  reward. Restart after a failed approach remains free.
 - Weekly Journey: 99 sequential stages per UTC Monday week; progress is local and
   the first ten stages avoid hidden layers and locks. Later difficulty mixes rules.
-- Every mode retains its own progress. Restart is free. Settings and cosmetics save.
+- Journey progress combines the former Relaxed and Challenge paths at the furthest
+  level reached. Daily and weekly progress stay separate. Restart is free. Settings
+  and cosmetics save.
 - Dark appearance is the default, with a saved light/dark toggle on both menu and
   gameplay. Existing saves without an appearance preference migrate to dark without
   resetting their puzzles. Cosmetic backgrounds have both light and dark palettes.

@@ -17,13 +17,13 @@ import { cancelHaptics, hapticCue } from '../../src/services/haptics';
 describe('soft haptics', () => {
   test('Android uses distinct gentle patterns and respects mute/background', () => {
     hapticCue('select', true);
-    expect(Vibration.vibrate).toHaveBeenLastCalledWith(7);
+    expect(Vibration.vibrate).toHaveBeenLastCalledWith(5);
     hapticCue('pour', true);
-    expect(Vibration.vibrate).toHaveBeenLastCalledWith(12);
+    expect(Vibration.vibrate).toHaveBeenLastCalledWith(8);
     hapticCue('bottle', true);
-    expect(Vibration.vibrate).toHaveBeenLastCalledWith([0, 10, 65, 16]);
+    expect(Vibration.vibrate).toHaveBeenLastCalledWith([0, 7, 80, 11]);
     hapticCue('win', true);
-    expect(Vibration.vibrate).toHaveBeenLastCalledWith([0, 12, 65, 18, 95, 24]);
+    expect(Vibration.vibrate).toHaveBeenLastCalledWith([0, 8, 75, 12, 110, 16]);
     jest.mocked(Vibration.vibrate).mockClear();
     hapticCue('win', false);
     expect(Vibration.vibrate).not.toHaveBeenCalled();

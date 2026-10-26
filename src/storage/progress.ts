@@ -158,9 +158,21 @@ export function decode(raw: string | null, now = new Date()): Progress {
       const expected = mode === 'weekly' ? p.weeklyLevel : mode === 'daily' ? 25 : p.levels[mode];
       if (validGame(g, mode) && g.level === expected) games[mode] = g;
     }
+    const journeyLevel = Math.max(p.levels.relaxed, p.levels.challenge);
+    const legacyJourneyGame =
+      games.relaxed?.level === journeyLevel
+        ? games.relaxed
+        : games.challenge?.level === journeyLevel
+          ? games.challenge
+          : undefined;
+    if (legacyJourneyGame) {
+      games.relaxed = { ...legacyJourneyGame, mode: 'relaxed' };
+    }
+    delete games.challenge;
     return rollover(
       {
         ...p,
+        levels: { ...p.levels, relaxed: journeyLevel },
         ads: decodeAdProgress(p.ads),
         games,
         onboarded: p.onboarded === true,

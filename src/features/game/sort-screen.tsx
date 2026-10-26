@@ -48,30 +48,23 @@ import {
   save,
   type Progress,
 } from '../../storage/progress';
-import { Bottle, BottleArt } from './bottle';
+import { Bottle, BottleArt, COLOUR_NAMES } from './bottle';
 import { PowerIcon } from './power-icon';
 import { PourFlight, type Flight } from './pour-flight';
 
 const MODES: { id: Mode; icon: string; name: string; text: string; colour: string }[] = [
   {
     id: 'relaxed',
-    icon: '☁',
-    name: 'Take it easy',
-    text: 'No rush. Just a little colour.',
-    colour: '#edf9ef',
-  },
-  {
-    id: 'challenge',
     icon: '✦',
-    name: 'A little challenge',
-    text: 'Find your flow. Earn your stars.',
-    colour: '#f2edff',
+    name: 'Journey',
+    text: 'Start easy. Grow into medium and hard puzzles.',
+    colour: '#edf9ef',
   },
   {
     id: 'daily',
     icon: '☀',
-    name: 'Daily drop',
-    text: 'One puzzle. A fresh start every day.',
+    name: 'Daily challenge',
+    text: 'A fresh puzzle with hidden colours and a lock.',
     colour: '#fff5da',
   },
   {
@@ -82,6 +75,10 @@ const MODES: { id: Mode; icon: string; name: string; text: string; colour: strin
     colour: '#e8f3ff',
   },
 ];
+const MODE_BORDERS = {
+  dark: ['#43dfc1', '#c3a4ff', '#ffc247', '#79b9ff'],
+  light: ['#16876f', '#7953c1', '#ba7c14', '#3477b5'],
+} as const;
 const TOOLS: Record<Power, { name: string; help: string; colour: string }> = {
   undo: { name: 'Undo', help: 'Take back your last pour.', colour: '#a98be4' },
   hint: { name: 'Hint', help: 'Light up a helpful next pour.', colour: '#f1ba4b' },
@@ -154,11 +151,84 @@ function Button({
     </Pressable>
   );
 }
+function WinCelebration({
+  completedBottles,
+  rating,
+  reduced,
+}: {
+  completedBottles: number;
+  rating: number;
+  reduced: boolean;
+}) {
+  const [burst] = useState(() => new Animated.Value(0));
+  const count = Math.min(15, 3 + completedBottles * 2 + rating);
+  const colours = ['#ffb547', '#35d7b7', '#c3a3ff', '#ff78b7', '#83b8ff'];
+  useEffect(() => {
+    burst.stopAnimation();
+    burst.setValue(reduced ? 0.55 : 0);
+    if (reduced) return;
+    const animation = Animated.timing(burst, {
+      toValue: 1,
+      duration: 760 + completedBottles * 35,
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [burst, completedBottles, rating, reduced]);
+  return (
+    <View style={{ width: 150, height: 68, alignSelf: 'center' }}>
+      {Array.from({ length: count }, (_, i) => {
+        const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
+        const distance = 18 + completedBottles * 3 + rating * 2;
+        const x = Math.cos(angle) * distance;
+        const y = Math.sin(angle) * distance;
+        return (
+          <Animated.View
+            key={i}
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              width: 18,
+              height: 18,
+              marginLeft: -9,
+              marginTop: -9,
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: burst.interpolate({
+                inputRange: [0, 0.18, 0.6, 1],
+                outputRange: [0, 1, 0.95, 0],
+              }),
+              transform: [
+                { translateX: burst.interpolate({ inputRange: [0, 1], outputRange: [0, x] }) },
+                { translateY: burst.interpolate({ inputRange: [0, 1], outputRange: [0, y] }) },
+                {
+                  scale: burst.interpolate({
+                    inputRange: [0, 0.2, 0.65, 1],
+                    outputRange: [0.2, 1.2, 1, 0.5],
+                  }),
+                },
+              ],
+            }}
+          >
+            <Text style={{ color: colours[i % colours.length], fontSize: i % 3 ? 17 : 20 }}>
+              {i % 3 ? '✦' : '●'}
+            </Text>
+          </Animated.View>
+        );
+      })}
+    </View>
+  );
+}
 export default function SortScreen() {
   const feedback = useFeedback();
   const ads = useAds();
   const params = useLocalSearchParams<{ mode?: string }>();
-  const mode = MODES.find((m) => m.id === params.mode)?.id;
+  const mode =
+    params.mode === 'challenge'
+      ? 'relaxed'
+      : MODES.find((m) => m.id === params.mode)?.id;
   const { width, height } = useWindowDimensions();
   const [progress, setProgress] = useState<Progress | null>(null);
   const [boardAreaHeight, setBoardAreaHeight] = useState(0);
@@ -168,7 +238,11 @@ export default function SortScreen() {
   const [selected, setSelected] = useState<number | null>(null);
   const [hint, setHint] = useState<Move | null>(null);
   const [pouring, setPouring] = useState<Move | null>(null);
-  const [flight, setFlight] = useState<(Flight & { next: Game }) | null>(null);
+  const [flight, setFlight] = useState<(Flight & { next: Game; move: Move }) | null>(null);
+  const [queuedFlight, setQueuedFlight] = useState<(Flight & { next: Game; move: Move }) | null>(
+    null,
+  );
+  const queuedFlightRef = useRef<(Flight & { next: Game; move: Move }) | null>(null);
   const [transferred, setTransferred] = useState(false);
   const [reduced, setReduced] = useState(false);
   const positions = useRef<Record<number, LayoutRectangle>>({});
@@ -196,6 +270,8 @@ export default function SortScreen() {
             p = { ...p, ads: { ...p.ads, interstitialPending: false } };
             feedback.configure(p);
             setFlight(null);
+            setQueuedFlight(null);
+            queuedFlightRef.current = null;
             setPouring(null);
             setTransferred(false);
             setSelected(null);
@@ -278,6 +354,10 @@ export default function SortScreen() {
       router.replace('/');
     });
   }
+  function dismissIntro() {
+    if (progress) setProgress({ ...progress, onboarded: true });
+    setSheet(null);
+  }
   function commit(next: Game, spent?: Power) {
     if (!mode || !progress) return;
     let p = {
@@ -296,13 +376,41 @@ export default function SortScreen() {
     }
     setProgress(p);
   }
+  function buildFlight(base: Game, move: Move) {
+    const next = play(base, move);
+    const source = positions.current[move[0]],
+      target = positions.current[move[1]];
+    if (next === base || !source || !target) return null;
+    return {
+      source,
+      target,
+      width: bottleWidth,
+      height: bottleHeight,
+      boardWidth,
+      motion: new Animated.Value(0),
+      targetBefore: base.board[move[1]],
+      targetAfter: next.board[move[1]],
+      before: base.board[move[0]],
+      after: next.board[move[0]],
+      shape: progress?.shape ?? 0,
+      reduced,
+      next,
+      move,
+    };
+  }
   function tap(index: number) {
-    if (!game || busy.current || win) return;
+    if (!game || win) return;
+    const animating = !!flight;
+    if ((busy.current && !animating) || (animating && queuedFlight)) {
+      if (queuedFlight) setMessage('Your next pour is queued.');
+      return;
+    }
+    const boardGame = flight?.next ?? game;
     if (removing) {
-      const colour = game.board[index].water.at(-1);
+      const colour = boardGame.board[index].water.at(-1);
       if (colour) {
-        const next = removeColour(game, colour);
-        if (next !== game) {
+        const next = removeColour(boardGame, colour);
+        if (next !== boardGame) {
           commit(next, 'remove');
           if (!solved(next.board)) feedback.cue('tool');
         }
@@ -311,49 +419,39 @@ export default function SortScreen() {
       return;
     }
     if (selected === null) {
-      if (game.board[index].water.length && game.board[index].lock === null) {
+      if (boardGame.board[index].water.length && boardGame.board[index].lock === null) {
         setSelected(index);
         feedback.cue('select');
-      } else if (game.board[index].lock)
-        setMessage('Complete a bottle of the matching colour to unlock this one.');
+      } else if (boardGame.board[index].lock) {
+        setMessage(
+          `Complete a ${COLOUR_NAMES[boardGame.board[index].lock!]} bottle to unlock this one.`,
+        );
+      }
       return;
     }
     if (selected === index) {
       setSelected(null);
       return;
     }
-    const next = play(game, [selected, index]);
-    if (next === game) {
-      setSelected(game.board[index].water.length ? index : null);
+    const move: Move = [selected, index];
+    const nextFlight = buildFlight(boardGame, move);
+    if (!nextFlight) {
+      setSelected(boardGame.board[index].water.length ? index : null);
       feedback.cue('invalid');
       setMessage('Pour onto a matching colour or into an empty bottle.');
       return;
     }
-    const source = positions.current[selected],
-      target = positions.current[index];
-    if (!source || !target) {
-      commit(next);
+    if (animating) {
+      queuedFlightRef.current = nextFlight;
+      setQueuedFlight(nextFlight);
       setSelected(null);
+      setMessage(`Next pour queued · bottle ${move[0] + 1} to ${move[1] + 1}.`);
       return;
     }
     busy.current = true;
-    setPouring([selected, index]);
+    setPouring(move);
     setTransferred(false);
-    setFlight({
-      source,
-      target,
-      width: bottleWidth,
-      height: bottleHeight,
-      boardWidth,
-      motion: new Animated.Value(0),
-      targetBefore: game.board[index],
-      targetAfter: next.board[index],
-      before: game.board[selected],
-      after: next.board[selected],
-      shape: progress?.shape ?? 0,
-      reduced,
-      next,
-    });
+    setFlight(nextFlight);
     setHint(null);
     setMessage('');
   }
@@ -500,6 +598,14 @@ export default function SortScreen() {
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
+                    accessibilityLabel="Make it yours: backgrounds and bottle shapes"
+                    onPress={() => setSheet('closet')}
+                    style={s.circle}
+                  >
+                    <Text style={{ fontSize: 22, color: p.accent }}>✿</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
                     accessibilityLabel="Settings"
                     onPress={() => setSheet('settings')}
                     style={s.circle}
@@ -545,6 +651,8 @@ export default function SortScreen() {
                         s.card,
                         {
                           backgroundColor: p.cards[index],
+                          borderColor: MODE_BORDERS[p.dark ? 'dark' : 'light'][index],
+                          borderWidth: 2,
                           paddingVertical: compact ? 8 : 18,
                           opacity: done ? 0.65 : 1,
                         },
@@ -569,18 +677,18 @@ export default function SortScreen() {
                   );
                 })}
               </View>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setSheet('closet')}
-                style={[s.closet, compact && { padding: 10 }]}
-              >
-                <Text style={{ fontSize: 23, color: p.accent }}>✿</Text>
-                <View>
-                  <Text style={s.cardTitle}>Make it yours</Text>
-                  <Text style={s.cardText}>16 scenes to collect & bottle shapes</Text>
-                </View>
-                <Text style={s.arrow}>↗</Text>
-              </Pressable>
+              {!progress.onboarded && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="How to play"
+                  onPress={() => setSheet('intro')}
+                  style={s.howToPlay}
+                >
+                  <Text style={{ color: p.accent, fontSize: 12, fontWeight: '800' }}>
+                    How to play  ·  Learn the pour rules
+                  </Text>
+                </Pressable>
+              )}
               <Text style={s.footer}>
                 {progress.streak ? `${progress.streak} day daily streak · ` : ''}Made for your
                 softer moments.
@@ -631,12 +739,16 @@ export default function SortScreen() {
               <View style={s.levelHeading}>
                 <Text style={[s.level, compact && { fontSize: 29 }]}>
                   {mode === 'daily'
-                    ? 'Your daily drop'
+                    ? 'Daily challenge'
                     : `Level ${game.level < 10 ? '0' : ''}${game.level}`}
                 </Text>
                 <Text style={s.subtitle}>
                   {mode === 'relaxed'
-                    ? 'Take your time. You’re right where you need to be.'
+                    ? game.level < 10
+                      ? 'Easy · Find your flow'
+                      : game.level < 25
+                        ? 'Medium · A little more to think about'
+                        : 'Hard · Hidden colours and locked bottles ahead'
                     : `${game.moves} pours · ${mode === 'weekly' ? `${game.level} of 99` : 'Find your best flow'}`}
                 </Text>
               </View>
@@ -697,12 +809,21 @@ export default function SortScreen() {
                       onPourStart={() => feedback.cue('pour')}
                       onTransfer={() => setTransferred(true)}
                       onComplete={() => {
-                        busy.current = false;
                         commit(flight.next);
-                        setFlight(null);
-                        setPouring(null);
-                        setSelected(null);
                         setTransferred(false);
+                        const queued = queuedFlightRef.current;
+                        queuedFlightRef.current = null;
+                        setQueuedFlight(null);
+                        if (queued) {
+                          setFlight(queued);
+                          setPouring(queued.move);
+                          setSelected(null);
+                          setMessage('');
+                        } else {
+                          busy.current = false;
+                          setFlight(null);
+                          setPouring(null);
+                        }
                       }}
                     />
                   )}
@@ -747,7 +868,7 @@ export default function SortScreen() {
                   ))}
                 </View>
               </View>
-              <View style={{ alignItems: 'center' }}>
+              <View style={{ height: 58, alignItems: 'center', justifyContent: 'center' }}>
                 <AdBanner />
               </View>
             </View>
@@ -774,14 +895,16 @@ export default function SortScreen() {
                   compact && { gap: 8, padding: 16 },
                 ]}
               >
-                <Text style={s.celebration}>✧ ✦ ✧</Text>
+                <WinCelebration
+                  completedBottles={win?.board.filter(complete).length ?? 1}
+                  rating={win ? stars(win) : 1}
+                  reduced={reduced}
+                />
                 <Text style={[s.level, compact && { fontSize: 24 }]}>Beautifully sorted.</Text>
                 <Text style={[s.body, compact && { fontSize: 11, lineHeight: 16 }]}>
-                  {win?.mode === 'relaxed'
-                    ? 'A little calmer. A little more colourful.'
-                    : win
-                      ? `${'★'.repeat(stars(win))}${'☆'.repeat(3 - stars(win))}  ·  ${win.moves} pours`
-                      : ''}
+                  {win
+                    ? `${'★'.repeat(stars(win))}${'☆'.repeat(3 - stars(win))}  ·  ${win.moves} pours`
+                    : ''}
                 </Text>
                 <Button
                   label={
@@ -816,7 +939,10 @@ export default function SortScreen() {
             visible={!!sheet}
             transparent
             animationType="fade"
-            onRequestClose={() => setSheet(null)}
+            onRequestClose={() => {
+              if (sheet === 'intro' && progress) setProgress({ ...progress, onboarded: true });
+              setSheet(null);
+            }}
           >
             <View style={s.overlay}>
               <View
@@ -831,13 +957,33 @@ export default function SortScreen() {
               >
                 {sheet === 'intro' ? (
                   <>
-                    <Text style={[s.level, compact && { fontSize: 24 }]}>
-                      A little helping hand
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text
+                        style={[
+                          s.level,
+                          { flex: 1, textAlign: 'center', marginLeft: 38 },
+                          compact && { fontSize: 24 },
+                        ]}
+                      >
+                        How to play
+                      </Text>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Close how to play"
+                        onPress={dismissIntro}
+                        style={s.circle}
+                      >
+                        <Text style={[s.gear, { fontSize: 22 }]}>×</Text>
+                      </Pressable>
+                    </View>
                     <Text style={[s.body, compact && { fontSize: 11, lineHeight: 16 }]}>
-                      {compact
-                        ? 'Tools are optional. Restart is always free.'
-                        : 'Every puzzle can be solved without tools. These are here when you want a softer landing.'}
+                      Tap a bottle, then another. Pour onto the same colour or into an empty bottle.
+                      Sort every colour into its own bottle. Restart is free; tools are optional.
+                    </Text>
+                    <Text style={[s.cardTitle, { textAlign: 'center' }]}>A little helping hand</Text>
+                    <Text style={[s.body, compact && { fontSize: 11, lineHeight: 16 }]}>
+                      Every puzzle can be solved without tools. Use these whenever you want a
+                      softer landing.
                     </Text>
                     {POWERS.map((id) => (
                       <View
@@ -1123,7 +1269,10 @@ export default function SortScreen() {
                 <Button
                   label={sheet === 'backgrounds' ? 'Back to collection' : 'Got it'}
                   onPress={() => {
-                    if (sheet === 'intro') setProgress({ ...progress, onboarded: true });
+                    if (sheet === 'intro') {
+                      dismissIntro();
+                      return;
+                    }
                     setSheet(sheet === 'backgrounds' ? 'closet' : null);
                   }}
                 />
@@ -1188,6 +1337,13 @@ function makeStyles(p: Palette) {
       backgroundColor: p.surface,
     },
     arrow: { marginLeft: 'auto', fontSize: 24, color: p.accent },
+    howToPlay: {
+      alignSelf: 'center',
+      paddingHorizontal: 14,
+      paddingVertical: 9,
+      borderRadius: 16,
+      backgroundColor: p.surface,
+    },
     footer: { fontSize: 9, color: p.quiet, textAlign: 'center', paddingVertical: 13 },
     game: { flex: 1, paddingHorizontal: 16, maxWidth: 700, width: '100%', alignSelf: 'center' },
     eyebrow: { color: p.muted, fontSize: 9, letterSpacing: 2, fontWeight: '800' },
@@ -1278,7 +1434,6 @@ function makeStyles(p: Palette) {
       gap: 18,
       alignItems: 'stretch',
     },
-    celebration: { color: p.icons[2], fontSize: 43, textAlign: 'center' },
     body: { fontSize: 13, lineHeight: 22, color: p.muted, textAlign: 'center' },
     button: {
       minHeight: 48,

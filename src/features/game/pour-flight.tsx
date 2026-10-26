@@ -29,13 +29,16 @@ export function PourFlight({
   onComplete: () => void;
 }) {
   const motion = flight.motion;
-  const duration = 1300 + (flight.before.water.length - flight.after.water.length) * 180;
+  // A modest speed-up keeps the pour expressive without making it feel rushed.
+  const duration = 1050 + (flight.before.water.length - flight.after.water.length) * 140;
   const [drained, setDrained] = useState(false);
   const callbacks = useRef({ onPourStart, onTransfer, onComplete });
   useEffect(() => {
     callbacks.current = { onPourStart, onTransfer, onComplete };
   }, [onPourStart, onTransfer, onComplete]);
   useEffect(() => {
+    motion.setValue(0);
+    setDrained(false);
     if (flight.reduced) {
       callbacks.current.onPourStart();
       callbacks.current.onTransfer();

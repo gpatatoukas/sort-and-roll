@@ -93,7 +93,7 @@ export function createGame(mode: Mode, level: number, seed: number): Game {
   };
   const difficulty =
     mode === 'relaxed'
-      ? Math.min(4, 2 + Math.floor((level - 1) / 12))
+      ? Math.min(6, 2 + Math.floor((level - 1) / 12))
       : Math.min(6, 3 + Math.floor((level - 1) / 15));
   let board: Board = Array.from({ length: difficulty + 2 }, (_, i) => ({
     water: i < difficulty ? Array<number>(4).fill(i + 1) : [],
@@ -104,7 +104,8 @@ export function createGame(mode: Mode, level: number, seed: number): Game {
   const seen = new Set<string>([key(board)]);
   // Only accept a reverse step if an actual maximum-run pour exactly restores
   // its predecessor. Reversing the recorded steps is a constructive proof.
-  for (let step = 0; step < 18 + difficulty * 7; step++) {
+  const levelRamp = mode === 'relaxed' ? Math.min(18, Math.floor((level - 1) / 4)) : 0;
+  for (let step = 0; step < 18 + difficulty * 7 + levelRamp; step++) {
     const candidates: { board: Board; move: Move }[] = [];
     for (let a = 0; a < board.length; a++)
       for (let b = 0; b < board.length; b++) {
@@ -131,7 +132,11 @@ export function createGame(mode: Mode, level: number, seed: number): Game {
     seen.add(key(board));
     solution.unshift(chosen.move);
   }
-  if (mode !== 'relaxed' && level > 10) {
+  if (
+    mode === 'daily' ||
+    (mode === 'challenge' && level > 10) ||
+    (mode === 'relaxed' && level >= 25)
+  ) {
     const locked = clone(board);
     const target = locked.findIndex((b) => b.water.length === 0);
     if (target >= 0) {
@@ -142,7 +147,10 @@ export function createGame(mode: Mode, level: number, seed: number): Game {
         solution = path;
       }
     }
-    if (level % 3 === 0)
+    if (
+      (mode === 'daily' && level >= 25) ||
+      (level % 3 === 0 && (mode === 'challenge' || level >= 25))
+    )
       board = board.map((b) => ({ ...b, hidden: b.water.map((_, i) => i).slice(0, -1) }));
   }
   return {
