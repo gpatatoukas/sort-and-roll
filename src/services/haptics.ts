@@ -7,11 +7,11 @@ export function hapticCue(sound: Sound, enabled: boolean) {
   if (Platform.OS === 'android') {
     const pattern =
       sound === 'win'
-        ? [0, 8, 75, 12, 110, 16]
+        ? [0, 7, 85, 9]
         : sound === 'bottle'
-          ? [0, 7, 80, 11]
+          ? [0, 6, 80, 8]
           : sound === 'pour'
-            ? 8
+            ? 6
             : sound === 'invalid'
               ? 5
               : 5;

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Sort and Roll",
     "slug": "sort-and-roll",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/branding/app-icon-1024.png",
     "scheme": "sortandroll",

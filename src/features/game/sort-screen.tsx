@@ -449,6 +449,7 @@ export default function SortScreen() {
       return;
     }
     busy.current = true;
+    setSelected(null);
     setPouring(move);
     setTransferred(false);
     setFlight(nextFlight);
