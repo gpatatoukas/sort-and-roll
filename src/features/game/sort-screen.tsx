@@ -711,20 +711,12 @@ export default function SortScreen() {
   const [invalidMove, setInvalidMove] = useState<{ index: number; revision: number } | null>(null);
   const invalidRevision = useRef(0);
   const [entranceTrigger, setEntranceTrigger] = useState(0);
-  const [exitTrigger, setExitTrigger] = useState(0);
   const [completionChain, setCompletionChain] = useState<{
     from: LayoutRectangle;
     to: LayoutRectangle;
     id: number;
   } | null>(null);
   const chainRevision = useRef(0);
-  const levelTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (levelTimer.current) clearTimeout(levelTimer.current);
-    },
-    [],
-  );
   const [removing, setRemoving] = useState(false);
   const busy = useRef(false);
 
@@ -836,7 +828,6 @@ export default function SortScreen() {
     }
   }
   function home() {
-    if (levelTimer.current) clearTimeout(levelTimer.current);
     void transition(() => {
       setWin(null);
       router.replace('/');
@@ -1296,7 +1287,6 @@ export default function SortScreen() {
                       shape={progress.shape}
                       invalidTrigger={invalidMove?.index === i ? invalidMove.revision : 0}
                       entranceTrigger={entranceTrigger}
-                      exitTrigger={exitTrigger}
                       onPress={() => tap(i)}
                       onLayout={(rect) => {
                         positions.current[i] = rect;
@@ -1437,30 +1427,20 @@ export default function SortScreen() {
                     else if (mode)
                       void transition(() => {
                         setWin(null);
-                        setExitTrigger((value) => value + 1);
                         setSelected(null);
                         setMessage('');
-                        const expectedSession = session.current;
-                        if (levelTimer.current) clearTimeout(levelTimer.current);
-                        levelTimer.current = setTimeout(
-                          () => {
-                            if (session.current !== expectedSession) return;
-                            setProgress((current) =>
-                              current
-                                ? enter(
-                                    {
-                                      ...current,
-                                      ads: { ...current.ads, interstitialPending: false },
-                                    },
-                                    mode,
-                                  )
-                                : current,
-                            );
-                            setEntranceTrigger((value) => value + 1);
-                            levelTimer.current = null;
-                          },
-                          reduced ? 0 : 410,
+                        setProgress((current) =>
+                          current
+                            ? enter(
+                                {
+                                  ...current,
+                                  ads: { ...current.ads, interstitialPending: false },
+                                },
+                                mode,
+                              )
+                            : current,
                         );
+                        setEntranceTrigger((value) => value + 1);
                       });
                   }}
                 />
