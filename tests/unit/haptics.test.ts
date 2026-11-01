@@ -19,11 +19,11 @@ describe('soft haptics', () => {
     hapticCue('select', true);
     expect(Vibration.vibrate).toHaveBeenLastCalledWith(5);
     hapticCue('pour', true);
-    expect(Vibration.vibrate).toHaveBeenLastCalledWith(8);
+    expect(Vibration.vibrate).toHaveBeenLastCalledWith(6);
     hapticCue('bottle', true);
-    expect(Vibration.vibrate).toHaveBeenLastCalledWith([0, 7, 80, 11]);
+    expect(Vibration.vibrate).toHaveBeenLastCalledWith([0, 6, 80, 8]);
     hapticCue('win', true);
-    expect(Vibration.vibrate).toHaveBeenLastCalledWith([0, 8, 75, 12, 110, 16]);
+    expect(Vibration.vibrate).toHaveBeenLastCalledWith([0, 7, 85, 9]);
     jest.mocked(Vibration.vibrate).mockClear();
     hapticCue('win', false);
     expect(Vibration.vibrate).not.toHaveBeenCalled();

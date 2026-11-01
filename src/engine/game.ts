@@ -1,6 +1,6 @@
 export const CAPACITY = 4;
 export type Mode = 'relaxed' | 'challenge' | 'daily' | 'weekly';
-export type Power = 'undo' | 'hint' | 'bottle' | 'reveal' | 'remove';
+export type Power = 'undo' | 'bottle' | 'reveal' | 'remove';
 export type Move = readonly [number, number];
 export type Bottle = { water: number[]; hidden: number[]; lock: number | null };
 export type Board = Bottle[];

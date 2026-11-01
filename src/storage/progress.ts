@@ -18,7 +18,7 @@ import {
   type Mode,
   type Power,
 } from '../engine/game';
-export const POWERS: Power[] = ['undo', 'hint', 'bottle', 'reveal', 'remove'];
+export const POWERS: Power[] = ['undo', 'bottle', 'reveal', 'remove'];
 export type Progress = {
   version: 1;
   ads: AdProgress;
@@ -56,7 +56,7 @@ export function fresh(now = new Date()): Progress {
     weeklyLevel: 1,
     levels: { relaxed: 1, challenge: 1 },
     games: {},
-    inventory: { undo: 3, hint: 3, bottle: 2, reveal: 2, remove: 1 },
+    inventory: { undo: 3, bottle: 2, reveal: 2, remove: 1 },
     music: true,
     sfx: true,
     vibration: true,
@@ -175,6 +175,12 @@ export function decode(raw: string | null, now = new Date()): Progress {
         levels: { ...p.levels, relaxed: journeyLevel },
         ads: decodeAdProgress(p.ads),
         games,
+        inventory: {
+          undo: p.inventory.undo,
+          bottle: p.inventory.bottle,
+          reveal: p.inventory.reveal,
+          remove: p.inventory.remove,
+        },
         onboarded: p.onboarded === true,
         music: typeof p.music === 'boolean' ? p.music : true,
         sfx: typeof p.sfx === 'boolean' ? p.sfx : true,

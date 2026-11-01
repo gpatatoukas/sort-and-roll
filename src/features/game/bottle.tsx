@@ -11,7 +11,15 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppearance } from './appearance';
 import { complete, type Bottle as BottleState } from '../../engine/game';
-export const COLOURS = ['#000', '#ff8574', '#a68bf4', '#67cbbd', '#ffce68', '#75aaf5', '#ee91ba'];
+export const COLOURS = [
+  '#000',
+  '#FF5F78', // Block & Roll coral
+  '#AA72FF', // Block & Roll lavender
+  '#14D9AE', // Block & Roll mint
+  '#FFD12F', // Block & Roll gold
+  '#2FBBFF', // Block & Roll blue
+  '#FF5E9C', // Block & Roll pink
+];
 export const COLOUR_NAMES = ['', 'coral', 'violet', 'mint', 'gold', 'blue', 'pink'];
 export type LiquidTransfer = {
   motion: Animated.Value;
@@ -25,6 +33,8 @@ export function BottleArt({
   shape,
   highlighted = false,
   transfer,
+  capProgress,
+  surfaceRipple,
   sealScale,
   ringPulse,
 }: {
@@ -34,6 +44,8 @@ export function BottleArt({
   shape: number;
   highlighted?: boolean;
   transfer?: LiquidTransfer;
+  capProgress?: Animated.Value;
+  surfaceRipple?: Animated.Value;
   sealScale?: Animated.Value;
   ringPulse?: Animated.Value;
 }) {
@@ -41,7 +53,7 @@ export function BottleArt({
   const edge = highlighted ? p.accent : p.glassEdge;
   const rounded = shape === 2;
   return (
-    <View style={{ width: width * 0.86 }}>
+    <View style={{ width: width * 0.86, position: 'relative' }}>
       <View
         style={[styles.neck, { width: width * 0.38, borderColor: edge, backgroundColor: p.neck }]}
       >
@@ -70,6 +82,94 @@ export function BottleArt({
           }}
         />
       </View>
+      {complete(bottle) && capProgress && (
+        <Animated.View
+          pointerEvents="none"
+          testID="bottle-cap"
+          style={{
+            position: 'absolute',
+            zIndex: 3,
+            top: -8,
+            left: width * 0.205,
+            width: width * 0.45,
+            height: 17,
+            transform: [
+              {
+                translateY: capProgress.interpolate({
+                  inputRange: [0, 0.7, 1],
+                  outputRange: [-height * 0.11, 2, 0],
+                }),
+              },
+              {
+                rotate: capProgress.interpolate({
+                  inputRange: [0, 0.7, 1],
+                  outputRange: ['-18deg', '4deg', '0deg'],
+                }),
+              },
+              {
+                scale: capProgress.interpolate({
+                  inputRange: [0, 0.7, 1],
+                  outputRange: [0.7, 1.12, 1],
+                }),
+              },
+            ],
+          }}
+        >
+          <LinearGradient
+            colors={['#FFF3A6', '#F3B92F', '#D78316']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{
+              flex: 1,
+              borderWidth: 1.5,
+              borderColor: '#FFF4C4',
+              borderRadius: 5,
+              overflow: 'hidden',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <View
+              style={{
+                position: 'absolute',
+                top: -2,
+                left: -2,
+                right: -2,
+                height: 5,
+                borderWidth: 1,
+                borderColor: '#FFF9DA',
+                borderRadius: 4,
+                backgroundColor: '#FFE77B',
+              }}
+            />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 }}>
+              {Array.from({ length: 6 }, (_, rib) => (
+                <View
+                  key={rib}
+                  style={{
+                    width: 1.5,
+                    height: 7,
+                    borderRadius: 1,
+                    backgroundColor: rib % 2 ? '#A86711' : '#FFF2B0',
+                  }}
+                />
+              ))}
+            </View>
+            <View
+              style={{
+                position: 'absolute',
+                bottom: 1,
+                left: 2,
+                right: 2,
+                height: 1.5,
+                borderRadius: 1,
+                backgroundColor: '#A86711',
+                opacity: 0.7,
+              }}
+            />
+          </LinearGradient>
+        </Animated.View>
+      )}
       <View
         style={[
           styles.glass,
@@ -169,6 +269,34 @@ export function BottleArt({
                     </>
                   ) : null}
                 </Animated.View>
+                {surfaceRipple && colour && position === bottle.water.length - 1 && (
+                  <Animated.View
+                    pointerEvents="none"
+                    testID="liquid-surface-ripple"
+                    style={{
+                      position: 'absolute',
+                      top: 1,
+                      left: 8,
+                      right: 8,
+                      height: 4,
+                      borderRadius: 4,
+                      backgroundColor: '#FFFFFF',
+                      opacity: surfaceRipple.interpolate({
+                        inputRange: [0, 0.18, 1],
+                        outputRange: [0, 0.85, 0],
+                      }),
+                      transform: [
+                        {
+                          scaleX: surfaceRipple.interpolate({
+                            inputRange: [0, 0.3, 1],
+                            outputRange: [0.35, 1.1, 1.8],
+                            extrapolate: 'clamp',
+                          }),
+                        },
+                      ],
+                    }}
+                  />
+                )}
               </View>
             );
           })}
@@ -246,9 +374,7 @@ export function BottleArt({
                     },
                   ]}
                 />
-                <Text style={styles.lockNeedText}>
-                  {COLOUR_NAMES[bottle.lock].toUpperCase()}
-                </Text>
+                <Text style={styles.lockNeedText}>{COLOUR_NAMES[bottle.lock].toUpperCase()}</Text>
               </View>
             </View>
           </View>
@@ -311,7 +437,6 @@ export function Bottle({
   bottle,
   index,
   selected,
-  hinted,
   ghost,
   target,
   width,
@@ -320,11 +445,13 @@ export function Bottle({
   onPress,
   onLayout,
   transfer,
+  invalidTrigger = 0,
+  entranceTrigger = 0,
+  exitTrigger = 0,
 }: {
   bottle: BottleState;
   index: number;
   selected: boolean;
-  hinted: boolean;
   ghost: boolean;
   target: boolean;
   width: number;
@@ -333,13 +460,26 @@ export function Bottle({
   onPress: () => void;
   onLayout: (rect: LayoutRectangle) => void;
   transfer?: LiquidTransfer;
+  invalidTrigger?: number;
+  entranceTrigger?: number;
+  exitTrigger?: number;
 }) {
   const p = useAppearance();
   const [motion] = useState(() => new Animated.Value(0));
+  const [settle] = useState(() => new Animated.Value(0));
+  const [surfaceRipple] = useState(() => new Animated.Value(0));
+  const [invalidMotion] = useState(() => new Animated.Value(0));
+  const [entryProgress] = useState(() => new Animated.Value(1));
+  const [exitProgress] = useState(() => new Animated.Value(0));
+  const [capProgress] = useState(() => new Animated.Value(complete(bottle) ? 1 : 0));
   const [sealScale] = useState(() => new Animated.Value(1));
   const [ringPulse] = useState(() => new Animated.Value(0));
   const reduce = useRef(false);
   const wasComplete = useRef(complete(bottle));
+  const previousLayerCount = useRef(bottle.water.length);
+  const previousInvalidTrigger = useRef(invalidTrigger);
+  const previousEntranceTrigger = useRef(entranceTrigger);
+  const previousExitTrigger = useRef(exitTrigger);
   useEffect(() => {
     void AccessibilityInfo.isReduceMotionEnabled().then((v) => {
       reduce.current = v;
@@ -359,15 +499,102 @@ export function Bottle({
     return () => animation.stop();
   }, [selected, motion]);
   useEffect(() => {
+    const layerCount = bottle.water.length;
+    if (layerCount > previousLayerCount.current && !reduce.current) {
+      settle.setValue(0);
+      const landing = Animated.sequence([
+        Animated.timing(settle, {
+          toValue: 0.38,
+          duration: 90,
+          useNativeDriver: true,
+        }),
+        Animated.spring(settle, {
+          toValue: 0,
+          friction: 4,
+          tension: 190,
+          useNativeDriver: true,
+        }),
+      ]);
+      const ripple = Animated.sequence([
+        Animated.timing(surfaceRipple, { toValue: 1, duration: 320, useNativeDriver: true }),
+        Animated.timing(surfaceRipple, { toValue: 0, duration: 220, useNativeDriver: true }),
+      ]);
+      Animated.parallel([landing, ripple]).start();
+      previousLayerCount.current = layerCount;
+      return () => {
+        landing.stop();
+        ripple.stop();
+      };
+    }
+    previousLayerCount.current = layerCount;
+    if (reduce.current) {
+      settle.setValue(0);
+      surfaceRipple.setValue(0);
+    }
+  }, [bottle.water.length, settle, surfaceRipple]);
+  useEffect(() => {
+    if (invalidTrigger === previousInvalidTrigger.current) return;
+    previousInvalidTrigger.current = invalidTrigger;
+    if (reduce.current) return;
+    invalidMotion.setValue(0);
+    const shake = Animated.sequence(
+      [-1, 1, -0.72, 0.55, 0].map((toValue, index) =>
+        Animated.timing(invalidMotion, {
+          toValue,
+          duration: index === 0 ? 55 : 75,
+          useNativeDriver: true,
+        }),
+      ),
+    );
+    shake.start();
+    return () => shake.stop();
+  }, [invalidMotion, invalidTrigger]);
+  useEffect(() => {
+    if (entranceTrigger === previousEntranceTrigger.current) return;
+    previousEntranceTrigger.current = entranceTrigger;
+    exitProgress.setValue(0);
+    entryProgress.setValue(0);
+    const entrance = Animated.timing(entryProgress, {
+      toValue: 1,
+      duration: reduce.current ? 0 : 360,
+      delay: reduce.current ? 0 : index * 38,
+      useNativeDriver: true,
+    });
+    entrance.start();
+    return () => entrance.stop();
+  }, [entryProgress, entranceTrigger, exitProgress, index]);
+  useEffect(() => {
+    if (exitTrigger === previousExitTrigger.current) return;
+    previousExitTrigger.current = exitTrigger;
+    entryProgress.setValue(1);
+    exitProgress.setValue(0);
+    const exit = Animated.timing(exitProgress, {
+      toValue: 1,
+      duration: reduce.current ? 0 : 270,
+      delay: reduce.current ? 0 : index * 24,
+      useNativeDriver: true,
+    });
+    exit.start();
+    return () => exit.stop();
+  }, [entryProgress, exitProgress, exitTrigger, index]);
+  useEffect(() => {
     const isComplete = complete(bottle);
     if (isComplete && !wasComplete.current) {
       if (reduce.current) {
+        capProgress.setValue(1);
         sealScale.setValue(1);
         ringPulse.setValue(0);
       } else {
+        capProgress.setValue(0);
         sealScale.setValue(0);
         ringPulse.setValue(0);
         Animated.parallel([
+          Animated.spring(capProgress, {
+            toValue: 1,
+            friction: 4,
+            tension: 170,
+            useNativeDriver: true,
+          }),
           Animated.spring(sealScale, {
             toValue: 1,
             friction: 4,
@@ -388,30 +615,79 @@ export function Bottle({
           ]),
         ]).start();
       }
+    } else if (!isComplete) {
+      capProgress.setValue(0);
     }
     wasComplete.current = isComplete;
-  }, [bottle, ringPulse, sealScale]);
+  }, [bottle, capProgress, ringPulse, sealScale]);
   const description = bottle.water
     .map((c, i) => (bottle.hidden.includes(i) ? 'hidden' : COLOUR_NAMES[c]))
     .join(', ');
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Bottle ${index + 1}: ${bottle.lock ? `locked ${COLOUR_NAMES[bottle.lock]}, ` : ''}${description || 'empty'}`}
-      accessibilityState={{ selected }}
+      accessibilityLabel={`Bottle ${index + 1}: ${complete(bottle) ? 'complete, capped' : `${bottle.lock ? `locked ${COLOUR_NAMES[bottle.lock]}, ` : ''}${description || 'empty'}`}`}
+      accessibilityState={{ selected, disabled: complete(bottle) }}
+      disabled={complete(bottle)}
       onPress={onPress}
       onLayout={(event) => onLayout(event.nativeEvent.layout)}
       testID={`bottle-${index}`}
       style={{ width, alignItems: 'center', paddingTop: 22, opacity: ghost ? 0 : 1 }}
     >
-      <Animated.View style={{ transform: [{ translateY: motion }] }}>
+      <Animated.View
+        style={{
+          opacity: Animated.multiply(
+            entryProgress,
+            exitProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+          ),
+          transform: [
+            {
+              translateY: Animated.add(
+                Animated.add(
+                  Animated.add(
+                    motion,
+                    settle.interpolate({
+                      inputRange: [0, 0.38],
+                      outputRange: [0, -6],
+                      extrapolate: 'clamp',
+                    }),
+                  ),
+                  entryProgress.interpolate({ inputRange: [0, 1], outputRange: [28, 0] }),
+                ),
+                exitProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -34] }),
+              ),
+            },
+            {
+              translateX: invalidMotion.interpolate({
+                inputRange: [-1, 1],
+                outputRange: [-5, 5],
+              }),
+            },
+            {
+              rotate: invalidMotion.interpolate({
+                inputRange: [-1, 1],
+                outputRange: ['-4deg', '4deg'],
+              }),
+            },
+            {
+              scale: settle.interpolate({
+                inputRange: [0, 0.2, 0.38],
+                outputRange: [1, 1.045, 1],
+                extrapolate: 'clamp',
+              }),
+            },
+          ],
+        }}
+      >
         <BottleArt
           bottle={bottle}
           width={width}
           height={height}
           shape={shape}
-          highlighted={selected || hinted}
+          highlighted={selected}
           transfer={transfer}
+          capProgress={capProgress}
+          surfaceRipple={surfaceRipple}
           sealScale={sealScale}
           ringPulse={ringPulse}
         />

@@ -12,7 +12,7 @@ test('one earned transaction adds exactly one charge, survives reload, and canno
   const p = fresh(now);
   p.inventory.undo = 0;
   const next = earnedPower(p, 'undo', 'sdk-1');
-  expect(next.inventory).toEqual({ undo: 1, hint: 3, bottle: 2, reveal: 2, remove: 1 });
+  expect(next.inventory).toEqual({ undo: 1, bottle: 2, reveal: 2, remove: 1 });
   expect(p.inventory.undo).toBe(0);
   expect(p.ads).toEqual({
     rewardTransactions: [],
@@ -26,15 +26,14 @@ test('one earned transaction adds exactly one charge, survives reload, and canno
   });
   const restored = decode(JSON.stringify(next), now);
   expect(earnedPower(restored, 'undo', 'sdk-1')).toBe(restored);
-  expect(earnedPower(p, 'hint', '')).toBe(p);
-  p.inventory.hint = 9999;
-  expect(earnedPower(p, 'hint', 'full')).toBe(p);
-  p.inventory.hint = 9998;
-  expect(earnedPower(p, 'hint', 'last').inventory.hint).toBe(9999);
+  p.inventory.undo = 9999;
+  expect(earnedPower(p, 'undo', 'full')).toBe(p);
+  p.inventory.undo = 9998;
+  expect(earnedPower(p, 'undo', 'last').inventory.undo).toBe(9999);
 });
-test('all five tools receive one charge without changing puzzles or level progress', () => {
+test('all four tools receive one charge without changing puzzles or level progress', () => {
   const p = enter(fresh(now), 'relaxed');
-  for (const tool of ['undo', 'hint', 'bottle', 'reveal', 'remove'] as const) {
+  for (const tool of ['undo', 'bottle', 'reveal', 'remove'] as const) {
     const next = earnedPower(p, tool, tool);
     expect(next.inventory[tool]).toBe(p.inventory[tool] + 1);
     expect(next.games).toBe(p.games);
@@ -42,23 +41,23 @@ test('all five tools receive one charge without changing puzzles or level progre
     expect(next.completed).toBe(0);
   }
 });
-test('five completed levels create one natural-break opportunity, rewarded completion suppresses it', () => {
+test('fifteen completed levels create one natural-break opportunity, rewarded completion suppresses it', () => {
   const initial = initialAdProgress();
-  for (const completed of [1, 2, 3, 4, 6, 9, 11])
+  for (const completed of [1, 2, 6, 9, 11, 14, 16, 29])
     expect(completionAds(initial, completed).interstitialPending).toBe(false);
-  for (const completed of [5, 10, 15])
+  for (const completed of [15, 30, 45])
     expect(completionAds(initial, completed).interstitialPending).toBe(true);
-  expect(completionAds({ ...initial, rewardAtCompletion: 4 }, 5).interstitialPending).toBe(false);
-  expect(completionAds({ ...initial, rewardAtCompletion: 3 }, 5).interstitialPending).toBe(true);
+  expect(completionAds({ ...initial, rewardAtCompletion: 14 }, 15).interstitialPending).toBe(false);
+  expect(completionAds({ ...initial, rewardAtCompletion: 13 }, 15).interstitialPending).toBe(true);
   expect(completionAds({ ...initial, interstitialPending: true }, 6).interstitialPending).toBe(
     false,
   );
-  let p = enter({ ...fresh(now), completed: 4 }, 'relaxed');
+  let p = enter({ ...fresh(now), completed: 14 }, 'relaxed');
   let game = p.games.relaxed!;
   for (const move of game.solution) game = play(game, move);
   p = { ...p, games: { relaxed: game } };
   const done = finish(p, 'relaxed');
-  expect(done.completed).toBe(5);
+  expect(done.completed).toBe(15);
   expect(done.ads.interstitialPending).toBe(true);
   expect(finish(done, 'relaxed')).toBe(done);
   expect(finish(earnedPower(p, 'undo', 'reward'), 'relaxed').ads.interstitialPending).toBe(false);

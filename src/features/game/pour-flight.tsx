@@ -38,7 +38,7 @@ export function PourFlight({
   }, [onPourStart, onTransfer, onComplete]);
   useEffect(() => {
     motion.setValue(0);
-    setDrained(false);
+    const resetTimer = setTimeout(() => setDrained(false), 0);
     if (flight.reduced) {
       callbacks.current.onPourStart();
       callbacks.current.onTransfer();
@@ -60,6 +60,7 @@ export function PourFlight({
       if (finished) callbacks.current.onComplete();
     });
     return () => {
+      clearTimeout(resetTimer);
       clearTimeout(timer);
       clearTimeout(flowTimer);
       animation.stop();
@@ -154,6 +155,40 @@ export function PourFlight({
           ],
         }}
       />
+      {[0, 1, 2].map((index) => {
+        const start = 0.48 + index * 0.055;
+        const end = Math.min(start + 0.2, 0.79);
+        return (
+          <Animated.View
+            key={index}
+            testID={`pour-droplet-${index}`}
+            style={{
+              position: 'absolute',
+              left: p.mouthX - 3 + index * 4,
+              top: p.mouthY,
+              width: index === 1 ? 6 : 4,
+              height: index === 1 ? 8 : 5,
+              borderRadius: 8,
+              backgroundColor: ink,
+              opacity: motion.interpolate({
+                inputRange: [start, start + 0.015, end, end + 0.02],
+                outputRange: [0, 1, 1, 0],
+                extrapolate: 'clamp',
+              }),
+              transform: [
+                {
+                  translateY: motion.interpolate({
+                    inputRange: [start, end],
+                    outputRange: [0, Math.max(18, surfaceBefore - 6)],
+                    extrapolate: 'clamp',
+                  }),
+                },
+                { scale: motion.interpolate({ inputRange: [start, end], outputRange: [0.6, 1] }) },
+              ],
+            }}
+          />
+        );
+      })}
       <Animated.View
         testID="pour-overlay"
         style={{

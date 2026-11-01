@@ -1,6 +1,6 @@
 {
   "name": "sort-and-roll",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/ui": "~58.0.23",
@@ -20,6 +20,7 @@
     "expo-router": "~58.0.26",
     "expo-splash-screen": "~58.0.11",
     "expo-status-bar": "~58.0.4",
+    "expo-store-review": "~58.0.2",
     "expo-symbols": "~58.0.4",
     "expo-system-ui": "~58.0.6",
     "expo-web-browser": "~58.0.6",

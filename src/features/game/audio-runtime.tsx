@@ -1,5 +1,5 @@
-import { useEffect, type RefObject } from 'react';
-import { AppState } from 'react-native';
+import { useEffect, useRef, type RefObject } from 'react';
+import { AppState, Platform } from 'react-native';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { configureNativePlayers } from '../../services/native-audio-players';
 import { AUDIO_ASSETS } from '../../services/audio-assets';
@@ -20,19 +20,34 @@ export function AudioRuntime({ preferences, controlsRef }: RuntimeProps) {
   const win = useAudioPlayer(AUDIO_ASSETS.win);
   const tool = useAudioPlayer(AUDIO_ASSETS.tool);
   const invalid = useAudioPlayer(AUDIO_ASSETS.invalid);
+  const audioModeReady = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => {
-    void setAudioModeAsync({
+    audioModeReady.current = setAudioModeAsync({
       allowsRecording: false,
-      playsInSilentMode: false,
+      // Android can map this to ringer mode; allow game audio in silent/vibrate.
+      playsInSilentMode: Platform.OS === 'android',
       shouldPlayInBackground: false,
       interruptionMode: 'mixWithOthers',
-    }).catch(() => undefined);
+    });
+    void audioModeReady.current.catch(() => undefined);
+  }, []);
+  useEffect(() => {
     const native = { music, select, pour, settle, bottle, win, tool, invalid };
     configureNativePlayers(native);
     const players = Object.fromEntries(
       Object.entries(native).map(([name, player]) => [
         name,
-        { play: () => player.play(), pause: () => player.pause(), rewind: () => player.seekTo(0) },
+        {
+          play: async () => {
+            await audioModeReady.current.catch(() => undefined);
+            await player.play();
+          },
+          pause: () => player.pause(),
+          rewind: async () => {
+            await audioModeReady.current.catch(() => undefined);
+            await player.seekTo(0);
+          },
+        },
       ]),
     ) as Players;
     const controller = createAudioController(players, { music: false, sfx: false });

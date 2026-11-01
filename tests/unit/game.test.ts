@@ -122,7 +122,6 @@ describe('sessions and tools', () => {
     const revealed = activatePower(g, 'reveal');
     expect(revealed.board.every((b) => !b.hidden.length)).toBe(true);
     expect(activatePower(revealed, 'reveal')).toBe(revealed);
-    expect(activatePower(g, 'hint')).toBe(g);
     const removed = removeColour(g, 1);
     expect(removed.board.every((b) => !b.water.includes(1))).toBe(true);
     expect(removeColour(g, 99)).toBe(g);
