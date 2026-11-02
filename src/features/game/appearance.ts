@@ -34,7 +34,7 @@ export const DARK = {
   collar: '#c2ad8199',
   reflection: '#e0ecff36',
   shade: '#070a1d55',
-  hidden: '#8986b1',
+  hidden: '#AEB0BD',
 };
 export type Palette = Omit<typeof DARK, 'dark' | 'backgrounds'> & {
   dark: boolean;
@@ -65,7 +65,7 @@ export const LIGHT: Palette = {
   collar: '#b59a6f91',
   reflection: '#ffffff8c',
   shade: '#84739524',
-  hidden: '#71809b',
+  hidden: '#717987',
 };
 export const AppearanceContext = createContext<Palette>(DARK);
 export const useAppearance = () => useContext(AppearanceContext);

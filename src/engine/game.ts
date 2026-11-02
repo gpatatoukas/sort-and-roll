@@ -8,6 +8,7 @@ export type Game = {
   mode: Mode;
   level: number;
   seed: number;
+  attempt?: number;
   board: Board;
   initial: Board;
   history: Board[];
@@ -18,7 +19,9 @@ export type Game = {
 export const clone = (board: Board): Board =>
   board.map((b) => ({ ...b, water: [...b.water], hidden: [...b.hidden] }));
 export const complete = (b: Bottle) =>
-  b.water.length === CAPACITY && b.water.every((c) => c === b.water[0]);
+  b.water.length === CAPACITY &&
+  b.hidden.length === 0 &&
+  b.water.every((c) => c === b.water[0]);
 export const solved = (board: Board) => board.every((b) => b.water.length === 0 || complete(b));
 export function pour(board: Board, from: number, to: number): Board | null {
   const a = board[from],
@@ -36,11 +39,17 @@ export function pour(board: Board, from: number, to: number): Board | null {
   const colour = a.water[a.water.length - 1];
   if (b.water.length && b.water[b.water.length - 1] !== colour) return null;
   let run = 1;
-  while (a.water[a.water.length - run - 1] === colour) run++;
+  while (
+    a.water[a.water.length - run - 1] === colour &&
+    !a.hidden.includes(a.water.length - run - 1)
+  )
+    run++;
   const count = Math.min(run, CAPACITY - b.water.length);
   const next = clone(board);
   next[from].water.splice(-count);
-  next[from].hidden = next[from].hidden.filter((i) => i < next[from].water.length - 1);
+  next[from].hidden = next[from].hidden.filter(
+    (i) => i >= 0 && i < next[from].water.length - 1,
+  );
   next[to].water.push(...Array<number>(count).fill(colour));
   const completed = new Set(next.filter(complete).map((bottle) => bottle.water[0]));
   next.forEach((bottle) => {
@@ -59,7 +68,7 @@ export function legalMoves(board: Board): Move[] {
 }
 const key = (board: Board) =>
   board
-    .map((b) => `${b.lock ?? 'x'}:${b.water.join('')}`)
+    .map((b) => `${b.lock ?? 'x'}:${b.water.join('')}:${b.hidden.join(',')}`)
     .sort()
     .join('|');
 // Bounded DFS; bottle permutation symmetry dramatically reduces duplicate states.
@@ -150,8 +159,10 @@ export function createGame(mode: Mode, level: number, seed: number): Game {
     if (
       (mode === 'daily' && level >= 25) ||
       (level % 3 === 0 && (mode === 'challenge' || level >= 25))
-    )
+    ) {
       board = board.map((b) => ({ ...b, hidden: b.water.map((_, i) => i).slice(0, -1) }));
+      solution = solve(board) ?? solution;
+    }
   }
   return {
     mode,

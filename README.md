@@ -12,6 +12,9 @@ npm start
 
 Tap a bottle, then a matching colour or empty bottle. Long-press a power-up for
 its explanation. Restart is free; progress and settings save independently per mode.
+Players have four shared lives across modes. A life is spent when a puzzle has no
+legal pours; leaving or restarting an unfinished puzzle also costs one life after
+confirmation. One life restores every 30 minutes; a rewarded ad can grant one extra life.
 
 ```sh
 npm run typecheck

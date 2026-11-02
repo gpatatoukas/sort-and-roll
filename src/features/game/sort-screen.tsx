@@ -1,11 +1,13 @@
 import { useAds } from './ads';
 import { AdBanner } from './ad-banner';
+import { BANNER_HEIGHT } from '@/services/ads/adapter';
 import * as StoreReview from 'expo-store-review';
 import Constants from 'expo-constants';
 import { earnedPower } from '../../policies/ads';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppState,
+  BackHandler,
   Animated,
   Image,
   AccessibilityInfo,
@@ -32,6 +34,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   play,
   complete,
+  legalMoves,
   removeColour,
   solved,
   stars,
@@ -55,7 +58,11 @@ import {
 import { recordCompletedRun } from '../../storage/rating-prompt';
 import { Bottle, BottleArt, COLOUR_NAMES } from './bottle';
 import { PowerIcon } from './power-icon';
+import { LivesMeter } from './lives-meter';
+import { grantLife, loseLife, refreshLives, MAX_LIVES } from '../../policies/lives';
 import { PourFlight, type Flight } from './pour-flight';
+
+const clockNow = () => Date.now();
 
 const MODES: { id: Mode; name: string; text: string; colour: string }[] = [
   {
@@ -175,18 +182,22 @@ function Button({
   label,
   onPress,
   secondary = false,
+  disabled = false,
 }: {
   label: string;
   onPress: () => void;
   secondary?: boolean;
+  disabled?: boolean;
 }) {
   const p = useAppearance();
   const s = useMemo(() => makeStyles(p), [p]);
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
-      style={[s.button, secondary && s.secondary]}
+      style={[s.button, secondary && s.secondary, disabled && { opacity: 0.55 }]}
     >
       <Text style={[s.buttonText, secondary && { color: p.text }]}>{label}</Text>
     </Pressable>
@@ -719,6 +730,11 @@ export default function SortScreen() {
   const chainRevision = useRef(0);
   const [removing, setRemoving] = useState(false);
   const busy = useRef(false);
+  const lifeBusy = useRef(false);
+  const failureHandled = useRef(new Set<string>());
+  const [lifeAdLoading, setLifeAdLoading] = useState(false);
+  const [lifeAction, setLifeAction] = useState<'exit' | 'restart' | null>(null);
+  const [lifeActionBusy, setLifeActionBusy] = useState(false);
 
   const loaded = useRef(false);
   const session = useRef(0);
@@ -763,7 +779,7 @@ export default function SortScreen() {
         setInteractionsLocked(false);
         activeMode.current = undefined;
       };
-    }, [mode, setWin, setMessage, setSheet, feedback]),
+    }, [mode, setWin, setMessage, setSheet, setRemoving, feedback]),
   );
   useEffect(() => {
     if (progress && loaded.current)
@@ -774,7 +790,10 @@ export default function SortScreen() {
         );
   }, [progress]);
   useEffect(() => {
-    const refresh = () => setProgress((p) => (p ? rollover(p, new Date()) : p));
+    const refresh = () =>
+      setProgress((p) =>
+        p ? { ...rollover(p, new Date()), lives: refreshLives(p.lives, Date.now()) } : p,
+      );
     const listener = AppState.addEventListener('change', (state) => {
       if (state === 'active') refresh();
     });
@@ -800,19 +819,71 @@ export default function SortScreen() {
     return () => clearTimeout(timer);
   }, [ads.showing, reviewPending, win]);
   const game = mode ? (progress?.games[mode] ?? win) : undefined;
+  const noLegalMoves = !!game && !solved(game.board) && legalMoves(game.board).length === 0;
+  useEffect(() => {
+    if (!progress || !game || !noLegalMoves) return;
+    const attemptId = `${game.mode}:${game.level}:${game.seed}:${game.attempt ?? 0}`;
+    if (failureHandled.current.has(attemptId)) return;
+    failureHandled.current.add(attemptId);
+    const next = { ...progress, lives: loseLife(progress.lives, attemptId, Date.now()) };
+    if (next.lives !== progress.lives) {
+      void Promise.resolve().then(() => {
+        feedback.cue('invalid');
+        setProgress(next);
+        return save(next);
+      }).catch(() => setError('Could not save the lost life. Please retry saving.'));
+    }
+  }, [feedback, game, noLegalMoves, progress]);
+  async function watchLife() {
+    if (!progress || lifeBusy.current || progress.lives.count >= MAX_LIVES) return;
+    lifeBusy.current = true;
+    setLifeAdLoading(true);
+    try {
+      await ads.watch(async (transaction) => {
+        const latest = await load();
+        const now = Date.now();
+        const nextLives = grantLife(refreshLives(latest.lives, now), transaction, now);
+        if (nextLives === latest.lives) return;
+        const next = { ...latest, lives: nextLives };
+        setProgress(next);
+        await save(next);
+      });
+    } catch {
+      setError('The extra life could not be saved. Please try again.');
+    } finally {
+      lifeBusy.current = false;
+      setLifeAdLoading(false);
+    }
+  }
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!mode) return false;
+      if (lifeAction) return true;
+      setLifeAction('exit');
+      return true;
+    });
+    return () => subscription.remove();
+  }, [lifeAction, mode]);
   function open(id: Mode) {
     if (!progress) return;
-    setProgress(enter(rollover(progress, new Date()), id));
+    const current = refreshLives(progress.lives, clockNow());
+    if (!current.count) {
+      setProgress({ ...progress, lives: current });
+      setMessage('No lives left. Tap the heart to watch an ad for one more.');
+      return;
+    }
+    setMessage('');
+    setProgress(enter(rollover({ ...progress, lives: current }, new Date()), id));
     router.push({ pathname: '/', params: { mode: id } });
   }
-  async function transition(action: () => void) {
-    if (busy.current || !progress) return;
+  async function transition(action: () => void, source: Progress | null = progress) {
+    if (busy.current || !source) return;
     busy.current = true;
     setInteractionsLocked(true);
     const expectedSession = session.current;
     try {
-      if (progress.ads.interstitialPending) {
-        const next = { ...progress, ads: { ...progress.ads, interstitialPending: false } };
+      if (source.ads.interstitialPending) {
+        const next = { ...source, ads: { ...source.ads, interstitialPending: false } };
         await save(next);
         setProgress(next);
         await ads.betweenLevels();
@@ -827,29 +898,67 @@ export default function SortScreen() {
       }
     }
   }
-  function home() {
-    void transition(() => {
+  async function leaveToMenu(source: Progress | null = progress) {
+    await transition(() => {
       setWin(null);
       router.replace('/');
-    });
+    }, source);
+  }
+  function home() {
+    if (win || !mode || !game) {
+      void leaveToMenu();
+      return;
+    }
+    setLifeAction('exit');
+  }
+  async function confirmLifeAction() {
+    if (!lifeAction || !progress || !game || !mode || busy.current || lifeActionBusy) return;
+    const action = lifeAction;
+    setLifeActionBusy(true);
+    try {
+      let next = progress;
+      if (!win && progress.lives.count > 0) {
+        const actionId = `player-${action}:${mode}:${game.level}:${game.seed}:${game.attempt ?? 0}`;
+        next = { ...progress, lives: loseLife(progress.lives, actionId, clockNow()) };
+        await save(next);
+        setProgress(next);
+      }
+      if (action === 'exit') {
+        setLifeAction(null);
+        await leaveToMenu(next);
+        return;
+      }
+      setLifeAction(null);
+      setSelected(null);
+      setRemoving(false);
+      setEntranceTrigger((value) => value + 1);
+      const restarted = commit(resetGame(game), undefined, next);
+      if (restarted) {
+        await save(restarted);
+      }
+    } catch {
+      setError('Could not save the life change. Please try again.');
+    } finally {
+      setLifeActionBusy(false);
+    }
   }
   function dismissIntro() {
     if (progress) setProgress({ ...progress, onboarded: true });
     setSheet(null);
   }
-  function commit(next: Game, spent?: Power) {
-    if (!mode || !progress) return;
+  function commit(next: Game, spent?: Power, source: Progress | null = progress) {
+    if (!mode || !source) return null;
     let p = {
-      ...progress,
-      games: { ...progress.games, [mode]: next },
-      inventory: { ...progress.inventory },
+      ...source,
+      games: { ...source.games, [mode]: next },
+      inventory: { ...source.inventory },
     };
     if (spent) p.inventory[spent]--;
     if (solved(next.board)) {
       feedback.cue('win');
       setWin(next);
       p = finish(p, mode);
-      if (p.completed > progress.completed) {
+      if (p.completed > source.completed) {
         void recordCompletedRun(`${next.mode}:${next.level}:${next.seed}`)
           .then((shouldRequest) => {
             if (shouldRequest) setReviewPending(true);
@@ -868,6 +977,7 @@ export default function SortScreen() {
       }
     }
     setProgress(p);
+    return p;
   }
   function buildFlight(base: Game, move: Move) {
     const next = play(base, move);
@@ -892,7 +1002,7 @@ export default function SortScreen() {
     };
   }
   function tap(index: number) {
-    if (!game || win) return;
+    if (!game || win || noLegalMoves || !progress?.lives.count) return;
     const animating = !!flight;
     if ((busy.current && !animating) || (animating && queuedFlight)) {
       if (queuedFlight) setMessage('Your next pour is queued.');
@@ -952,7 +1062,16 @@ export default function SortScreen() {
   }
 
   function power(id: Power) {
-    if (!game || !progress || busy.current || win || !powerAvailable(id, game)) return;
+    if (
+      !game ||
+      !progress ||
+      !progress.lives.count ||
+      noLegalMoves ||
+      busy.current ||
+      win ||
+      !powerAvailable(id, game)
+    )
+      return;
     if (!progress.inventory[id]) {
       busy.current = true;
       setInteractionsLocked(true);
@@ -1043,6 +1162,7 @@ export default function SortScreen() {
   const nextBackground = BACKGROUNDS.find((b) => b.unlockAt > progress.completed);
   const tabletLayout = Math.min(width, height) >= 600;
   const compact = height < 720;
+  const showMenuBanner = BANNER_HEIGHT > 0 && !compact;
   const toolSize = Math.min(tabletLayout ? 74 : 62, (width - 64) / 5);
   const boardWidth = Math.min(width - 36, tabletLayout ? 600 : 480);
   const cols = game ? Math.min(5, Math.ceil(game.board.length / 2)) : 4;
@@ -1076,6 +1196,12 @@ export default function SortScreen() {
               <View style={s.top}>
                 <Text style={s.brand}>PIXEL PULSE</Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <LivesMeter
+                    lives={progress.lives}
+                    onPress={() => void watchLife()}
+                    loading={lifeAdLoading || ads.showing}
+                    compact
+                  />
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Make it yours: backgrounds and bottle shapes"
@@ -1134,8 +1260,8 @@ export default function SortScreen() {
                       key={m.id}
                       accessibilityRole="button"
                       accessibilityLabel={m.name}
-                      accessibilityState={{ disabled: done }}
-                      disabled={done}
+                      accessibilityState={{ disabled: done || !progress.lives.count }}
+                      disabled={done || !progress.lives.count}
                       onPress={() => open(m.id)}
                       style={[
                         s.card,
@@ -1144,7 +1270,7 @@ export default function SortScreen() {
                           borderColor: MODE_BORDERS[p.dark ? 'dark' : 'light'][index],
                           borderWidth: 2,
                           paddingVertical: tabletLayout ? 16 : compact ? 10 : 12,
-                          opacity: done ? 0.65 : 1,
+                          opacity: done || !progress.lives.count ? 0.55 : 1,
                         },
                       ]}
                     >
@@ -1191,6 +1317,20 @@ export default function SortScreen() {
                   <Text style={{ color: p.accent, fontSize: 18, fontWeight: '900' }}>?</Text>
                 </Pressable>
               )}
+              {showMenuBanner && (
+                <View
+                  testID="banner-placement"
+                  style={{
+                    height: BANNER_HEIGHT,
+                    width: '100%',
+                    marginTop: 'auto',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <AdBanner />
+                </View>
+              )}
             </View>
           ) : game ? (
             <View style={[s.game, tabletLayout && { maxWidth: 660 }]}>
@@ -1214,17 +1354,20 @@ export default function SortScreen() {
                     : `Level ${game.level < 10 ? '0' : ''}${game.level}`}
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 6 }}>
+                  <LivesMeter
+                    lives={progress.lives}
+                    onPress={() => void watchLife()}
+                    loading={lifeAdLoading || ads.showing}
+                    compact
+                  />
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Restart puzzle"
+                    disabled={!progress.lives.count || noLegalMoves}
                     onPress={() => {
-                      if (!busy.current && !win) {
-                        commit(resetGame(game));
-                        setSelected(null);
-                        setRemoving(false);
-                      }
+                      if (!busy.current && !win) setLifeAction('restart');
                     }}
-                    style={s.topAction}
+                    style={[s.topAction, (!progress.lives.count || noLegalMoves) && { opacity: 0.45 }]}
                   >
                     <Image
                       source={require('../../../assets/icons/restart.png')}
@@ -1340,7 +1483,7 @@ export default function SortScreen() {
               <View style={s.powerPanel}>
                 <View style={s.tools}>
                   {POWERS.filter((id) => !!game && powerAvailable(id, game)).map((id) => {
-                    const enabled = !interactionLocked && !win;
+                    const enabled = !interactionLocked && !win && !noLegalMoves && !!progress.lives.count;
                     return (
                       <Pressable
                         key={id}
@@ -1367,8 +1510,16 @@ export default function SortScreen() {
                           ]}
                         >
                           <PowerIcon power={id} size={toolSize - 5} />
-                          <View style={[s.counter, { backgroundColor: TOOLS[id].colour }]}>
-                            <Text style={s.counterText}>{progress.inventory[id] || '+'}</Text>
+                          <View
+                            style={[
+                              s.counter,
+                              { backgroundColor: TOOLS[id].colour },
+                              !progress.inventory[id] && s.counterAd,
+                            ]}
+                          >
+                            <Text style={[s.counterText, !progress.inventory[id] && s.counterAdText]}>
+                              {progress.inventory[id] ? progress.inventory[id] : 'AD +1'}
+                            </Text>
                           </View>
                         </View>
                         <Text style={s.toolLabel}>{TOOLS[id].name}</Text>
@@ -1376,9 +1527,6 @@ export default function SortScreen() {
                     );
                   })}
                 </View>
-              </View>
-              <View style={{ height: 58, alignItems: 'center', justifyContent: 'center' }}>
-                <AdBanner />
               </View>
             </View>
           ) : (
@@ -1445,6 +1593,71 @@ export default function SortScreen() {
                   }}
                 />
                 <Button secondary label="Menu" onPress={home} />
+              </View>
+            </View>
+          </Modal>
+          <Modal
+            visible={!!game && !win && !!mode && lifeAction === null && !interactionLocked && (!progress.lives.count || noLegalMoves)}
+            transparent
+            animationType="fade"
+            onRequestClose={() => undefined}
+          >
+            <View style={s.overlay}>
+              <View style={[s.sheet, { gap: 14 }]} testID="lives-blocker">
+                <Text style={[s.level, compact && { fontSize: 24 }]}>
+                  {noLegalMoves ? 'No moves left' : 'Out of lives'}
+                </Text>
+                <LivesMeter
+                  lives={progress.lives}
+                  onPress={() => void watchLife()}
+                  loading={lifeAdLoading || ads.showing}
+                />
+                <Text style={[s.body, compact && { fontSize: 11, lineHeight: 16 }]}>
+                  {noLegalMoves
+                    ? 'This puzzle is stuck. Retry when you have a life.'
+                    : 'Your next life restores automatically. Watch an ad to get one now.'}
+                </Text>
+                {progress.lives.count > 0 && noLegalMoves && (
+                  <Button label="Retry puzzle" onPress={() => setLifeAction('restart')} />
+                )}
+                <Button
+                  secondary
+                  label={lifeAdLoading || ads.showing ? 'Loading ad…' : 'Watch ad for a life'}
+                  onPress={() => void watchLife()}
+                />
+                <Button secondary label="Menu" onPress={home} />
+              </View>
+            </View>
+          </Modal>
+          <Modal
+            visible={lifeAction !== null}
+            transparent
+            animationType="fade"
+                  onRequestClose={() => { if (!lifeActionBusy) setLifeAction(null); }}
+          >
+            <View style={s.overlay}>
+              <View style={[s.sheet, { gap: 14 }]} testID="life-action-confirmation">
+                <Text style={[s.level, compact && { fontSize: 24 }]}>
+                  {lifeAction === 'restart' ? 'Restart puzzle?' : 'Leave this game?'}
+                </Text>
+                <LivesMeter
+                  lives={progress.lives}
+                  onPress={() => void watchLife()}
+                  loading={lifeAdLoading || ads.showing}
+                />
+                <Text style={[s.body, compact && { fontSize: 11, lineHeight: 16 }]}>
+                  {win
+                    ? 'This puzzle is complete. Leaving won’t use a life.'
+                    : progress.lives.count > 0
+                    ? `You’ll spend 1 life to ${lifeAction === 'restart' ? 'restart this puzzle' : 'leave this game'}.${lifeAction === 'restart' && progress.lives.count === 1 ? ' The puzzle will restart, then wait until you have a life to continue.' : ''}`
+                    : 'You have no lives left, so this won’t use another one.'}
+                </Text>
+                <Button
+                  label={!win && progress.lives.count > 0 ? `Use 1 life & ${lifeAction === 'restart' ? 'restart' : 'leave'}` : lifeAction === 'restart' ? 'Return to menu' : 'Leave game'}
+                  disabled={lifeActionBusy}
+                  onPress={() => void confirmLifeAction()}
+                />
+                <Button secondary label="Keep playing" onPress={() => { if (!lifeActionBusy) setLifeAction(null); }} />
               </View>
             </View>
           </Modal>
@@ -2091,6 +2304,8 @@ function makeStyles(p: Palette) {
       justifyContent: 'center',
     },
     counterText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+    counterAd: { minWidth: 48, height: 22, right: -6, bottom: -5, borderRadius: 11, paddingHorizontal: 5, borderColor: '#FFF2A8' },
+    counterAdText: { fontSize: 9, lineHeight: 12, fontWeight: '900' },
     overlay: {
       flex: 1,
       backgroundColor: p.overlay,

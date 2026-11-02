@@ -201,7 +201,9 @@ export function BottleArt({
               colour = transfer
                 ? transfer.before.water[position] || transfer.after.water[position]
                 : bottle.water[position];
-            const hidden = bottle.hidden.includes(position);
+            // Hidden markers belong to real liquid layers. The receiving
+            // bottle can briefly render an unfilled segment during a pour.
+            const hidden = !!colour && position < bottle.water.length && bottle.hidden.includes(position);
             const ink = hidden ? p.hidden : COLOURS[colour];
             const before = transfer?.before.water.length ?? bottle.water.length;
             const after = transfer?.after.water.length ?? bottle.water.length;
@@ -234,15 +236,13 @@ export function BottleArt({
                 >
                   {colour ? (
                     <LinearGradient
-                      colors={[`${ink}cc`, ink, `${ink}d9`]}
+                      colors={hidden ? [ink, ink, `${ink}f2`] : [`${ink}cc`, ink, `${ink}d9`]}
                       start={{ x: 0, y: 0.5 }}
                       end={{ x: 1, y: 0.5 }}
                       style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}
                     />
                   ) : null}
-                  {hidden ? (
-                    <Text style={styles.question}>?</Text>
-                  ) : colour ? (
+                  {colour ? (
                     <>
                       <View
                         style={[
@@ -250,7 +250,7 @@ export function BottleArt({
                           {
                             height: position === bottle.water.length - 1 ? 3 : 1,
                             backgroundColor:
-                              position === bottle.water.length - 1 ? '#ffffff80' : '#ffffff25',
+                              position === bottle.water.length - 1 ? '#ffffffaa' : '#ffffff55',
                           },
                         ]}
                       />
@@ -259,13 +259,17 @@ export function BottleArt({
                           position: 'absolute',
                           right: 9 + (position % 2) * 5,
                           bottom: 7,
-                          width: 3,
-                          height: 3,
+                          width: 4,
+                          height: 4,
                           borderRadius: 2,
                           borderWidth: 1,
-                          borderColor: '#ffffff50',
+                          borderColor: '#ffffff88',
+                          backgroundColor: '#ffffff24',
                         }}
                       />
+                      {hidden && (
+                        <Text style={[styles.question, { textShadowColor: '#28145A', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 }]}>?</Text>
+                      )}
                     </>
                   ) : null}
                 </Animated.View>

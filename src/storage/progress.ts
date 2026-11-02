@@ -5,6 +5,7 @@ import {
   type AdProgress,
 } from '../policies/ads';
 import { BACKGROUNDS } from '../config/backgrounds';
+import { decodeLives, initialLives, type Lives } from '../policies/lives';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   clone,
@@ -34,6 +35,7 @@ export type Progress = {
   levels: Record<'relaxed' | 'challenge', number>;
   games: Partial<Record<Mode, Game>>;
   inventory: Record<Power, number>;
+  lives: Lives;
   music: boolean;
   sfx: boolean;
   vibration: boolean;
@@ -57,6 +59,7 @@ export function fresh(now = new Date()): Progress {
     levels: { relaxed: 1, challenge: 1 },
     games: {},
     inventory: { undo: 3, bottle: 2, reveal: 2, remove: 1 },
+    lives: initialLives(),
     music: true,
     sfx: true,
     vibration: true,
@@ -96,6 +99,7 @@ export function validGame(v: unknown, mode: Mode): v is Game {
     validBoard(g.board) &&
     validBoard(g.initial) &&
     integer(g.moves) &&
+    (g.attempt === undefined || integer(g.attempt, 1000000)) &&
     integer(g.par) &&
     g.par > 0 &&
     Array.isArray(g.history) &&
@@ -181,6 +185,7 @@ export function decode(raw: string | null, now = new Date()): Progress {
           reveal: p.inventory.reveal,
           remove: p.inventory.remove,
         },
+        lives: decodeLives(p.lives),
         onboarded: p.onboarded === true,
         music: typeof p.music === 'boolean' ? p.music : true,
         sfx: typeof p.sfx === 'boolean' ? p.sfx : true,
@@ -245,6 +250,7 @@ export function save(p: Progress): Promise<void> {
 export function resetGame(g: Game): Game {
   return {
     ...g,
+    attempt: (g.attempt ?? 0) + 1,
     board: clone(g.initial),
     history: [],
     moves: 0,
