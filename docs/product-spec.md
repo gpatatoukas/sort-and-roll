@@ -30,7 +30,7 @@ units of one colour. All starting puzzles have a solution without paid tools.
   unlocks across 0–365 completions, including Halloween at 40 and Christmas at 80.
   The paged gallery previews locked scenes and shows remaining levels. Earned
   scenes are permanent and available year-round, with light/dark variants.
-- Rewarded ads refill depleted tools. An interstitial is eligible every five level
+- Rewarded ads refill depleted tools. An interstitial is eligible every ten level
   completions and must be suppressed immediately after a rewarded ad.
 - Original offline music (Tideglass), seven liquid/glass sound effects, and soft
   selection/pouring/completion haptics. Music, effects and vibration have independent
@@ -60,7 +60,7 @@ Completed puzzles credit progress immediately; restarting does not consume tools
 
 Google Mobile Ads integration now includes gameplay banners, one rewarded ad per
 charge for all five tools, consent/privacy options, persisted reward deduplication
-and an interstitial at every fifth completion’s natural transition, suppressed
+and an interstitial at every tenth completion’s natural transition, suppressed
 after a rewarded ad on that level. Test mode is the default on both platforms;
 Sort and Roll’s own AdMob IDs and physical-device ad validation remain required.
 Web and older native binaries without the SDK grant no placeholder rewards.

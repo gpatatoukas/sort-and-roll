@@ -41,23 +41,23 @@ test('all four tools receive one charge without changing puzzles or level progre
     expect(next.completed).toBe(0);
   }
 });
-test('fifteen completed levels create one natural-break opportunity, rewarded completion suppresses it', () => {
+test('ten completed levels create one natural-break opportunity, rewarded completion suppresses it', () => {
   const initial = initialAdProgress();
-  for (const completed of [1, 2, 6, 9, 11, 14, 16, 29])
+  for (const completed of [1, 2, 6, 9, 11, 14, 16, 19, 21, 29])
     expect(completionAds(initial, completed).interstitialPending).toBe(false);
-  for (const completed of [15, 30, 45])
+  for (const completed of [10, 20, 30])
     expect(completionAds(initial, completed).interstitialPending).toBe(true);
-  expect(completionAds({ ...initial, rewardAtCompletion: 14 }, 15).interstitialPending).toBe(false);
-  expect(completionAds({ ...initial, rewardAtCompletion: 13 }, 15).interstitialPending).toBe(true);
+  expect(completionAds({ ...initial, rewardAtCompletion: 9 }, 10).interstitialPending).toBe(false);
+  expect(completionAds({ ...initial, rewardAtCompletion: 8 }, 10).interstitialPending).toBe(true);
   expect(completionAds({ ...initial, interstitialPending: true }, 6).interstitialPending).toBe(
     false,
   );
-  let p = enter({ ...fresh(now), completed: 14 }, 'relaxed');
+  let p = enter({ ...fresh(now), completed: 9 }, 'relaxed');
   let game = p.games.relaxed!;
   for (const move of game.solution) game = play(game, move);
   p = { ...p, games: { relaxed: game } };
   const done = finish(p, 'relaxed');
-  expect(done.completed).toBe(15);
+  expect(done.completed).toBe(10);
   expect(done.ads.interstitialPending).toBe(true);
   expect(finish(done, 'relaxed')).toBe(done);
   expect(finish(earnedPower(p, 'undo', 'reward'), 'relaxed').ads.interstitialPending).toBe(false);

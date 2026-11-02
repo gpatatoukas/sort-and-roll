@@ -16,7 +16,7 @@ build to test ads on a device.
   Transactions and inventory save atomically, with duplicates ignored. Session
   checks prevent late callbacks from changing a different puzzle. A killed app
   before the local save completes is not server-verifiable; no server was added.
-- Every fifth puzzle completion creates one interstitial opportunity. It is
+- Every tenth puzzle completion creates one interstitial opportunity. It is
   consumed and saved before presenting at Next or Back, never during a pour.
   Restart/unfinished exits do not count. A rewarded ad on that completed puzzle
   suppresses the interstitial. Missed opportunities are not queued into later play.

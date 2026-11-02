@@ -30,7 +30,37 @@ let earned = false;
 let opened = false;
 let onEarnReward: ((transaction: string) => void) | null = null;
 let rewardTransaction = '';
-const options = { requestNonPersonalizedAdsOnly: true };
+let requestOptions: { requestNonPersonalizedAdsOnly?: boolean } = {};
+export const getCurrentAdRequestOptions = () => requestOptions;
+function logAdEvent(
+  placement: string,
+  event: string,
+  error?: { code?: string; reason?: string; phase?: string },
+) {
+  if (error) {
+    console.warn(`[ads] ${placement} ${event}`, {
+      reason: error.reason ?? error.code ?? 'unknown',
+      phase: error.phase ?? 'unknown',
+    });
+    return;
+  }
+  console.info(`[ads] ${placement} ${event}`);
+}
+async function updateRequestOptions() {
+  if (!sdk) return;
+  try {
+    const gdprApplies = await sdk.AdsConsent.getGdprApplies();
+    if (!gdprApplies) {
+      requestOptions = {};
+      return;
+    }
+    const choices = await sdk.AdsConsent.getUserChoices();
+    requestOptions = { requestNonPersonalizedAdsOnly: !choices.selectPersonalisedAds };
+  } catch {
+    // Privacy-safe fallback if consent details can't be read.
+    requestOptions = { requestNonPersonalizedAdsOnly: true };
+  }
+}
 function loadRewarded() {
   if (
     !sdk ||
@@ -41,20 +71,26 @@ function loadRewarded() {
     return;
   rewarded?.destroy();
   earned = false;
-  const ad = sdk.RewardedAd.createForAdRequest(getAdUnits(sdk.TestIds)!.rewarded, options);
+  const ad = sdk.RewardedAd.createForAdRequest(getAdUnits(sdk.TestIds)!.rewarded, requestOptions);
   rewarded = ad;
   publish({ rewarded: 'loading' });
+  logAdEvent('rewarded', 'request started');
   ad.addAdEventListener(sdk.RewardedAdEventType.LOADED, () => {
     rewardLoadedAt = Date.now();
     publish({ rewarded: 'ready' });
+    logAdEvent('rewarded', 'loaded');
   });
   ad.addAdEventListener(sdk.RewardedAdEventType.EARNED_REWARD, () => {
     if (earned || !settleReward) return;
     earned = true;
+    logAdEvent('rewarded', 'reward earned');
     onEarnReward?.(rewardTransaction);
   });
+  ad.addAdEventListener(sdk.AdEventType.IMPRESSION, () => logAdEvent('rewarded', 'impression'));
+  ad.addAdEventListener(sdk.AdEventType.OPENED, () => logAdEvent('rewarded', 'opened'));
   ad.addAdEventListener(sdk.AdEventType.CLOSED, () => {
     const result = earned;
+    logAdEvent('rewarded', 'closed');
     publish({ showing: false, rewarded: 'loading' });
     settleReward?.(result);
     settleReward = null;
@@ -62,7 +98,8 @@ function loadRewarded() {
     ad.destroy();
     loadRewarded();
   });
-  ad.addAdEventListener(sdk.AdEventType.ERROR, () => {
+  ad.addAdEventListener(sdk.AdEventType.ERROR, (error) => {
+    logAdEvent('rewarded', 'error', error);
     publish({ ...(snapshot.rewarded === 'showing' ? { showing: false } : {}), rewarded: 'failed' });
     settleReward?.(earned);
     settleReward = null;
@@ -74,17 +111,22 @@ function loadRewarded() {
 function loadInterstitial() {
   if (!sdk || !snapshot.enabled || snapshot.showing) return;
   interstitial?.destroy();
-  const ad = sdk.InterstitialAd.createForAdRequest(getAdUnits(sdk.TestIds)!.interstitial, options);
+  const ad = sdk.InterstitialAd.createForAdRequest(getAdUnits(sdk.TestIds)!.interstitial, requestOptions);
   interstitial = ad;
   publish({ interstitial: 'loading' });
+  logAdEvent('interstitial', 'request started');
   ad.addAdEventListener(sdk.AdEventType.LOADED, () => {
     interstitialLoadedAt = Date.now();
     publish({ interstitial: 'ready' });
+    logAdEvent('interstitial', 'loaded');
   });
   ad.addAdEventListener(sdk.AdEventType.OPENED, () => {
     opened = true;
+    logAdEvent('interstitial', 'opened');
   });
+  ad.addAdEventListener(sdk.AdEventType.IMPRESSION, () => logAdEvent('interstitial', 'impression'));
   ad.addAdEventListener(sdk.AdEventType.CLOSED, () => {
+    logAdEvent('interstitial', 'closed');
     publish({ showing: false, interstitial: 'loading' });
     settleInterstitial?.(opened);
     settleInterstitial = null;
@@ -92,7 +134,8 @@ function loadInterstitial() {
     ad.destroy();
     loadInterstitial();
   });
-  ad.addAdEventListener(sdk.AdEventType.ERROR, () => {
+  ad.addAdEventListener(sdk.AdEventType.ERROR, (error) => {
+    logAdEvent('interstitial', 'error', error);
     publish({
       ...(snapshot.interstitial === 'showing' ? { showing: false } : {}),
       interstitial: 'failed',
@@ -133,6 +176,7 @@ export const adsAdapter: AdsAdapter = {
           publish({ rewarded: 'unavailable', interstitial: 'unavailable' });
           return;
         }
+        await updateRequestOptions();
         await sdk.default().setRequestConfiguration({
           maxAdContentRating: sdk.MaxAdContentRating.G,
           testDeviceIdentifiers: getTestDeviceIdentifiers(),
@@ -178,7 +222,8 @@ export const adsAdapter: AdsAdapter = {
     return new Promise<RewardResult>((resolve) => {
       settleReward = (result) => resolve({ earned: result, transaction });
       try {
-        void ad.show().catch(() => {
+        void ad.show().catch((error) => {
+          logAdEvent('rewarded', 'show failed', error);
           publish({ showing: false, rewarded: 'failed' });
           settleReward?.(earned);
           settleReward = null;
@@ -186,6 +231,7 @@ export const adsAdapter: AdsAdapter = {
           ad.destroy();
         });
       } catch {
+        logAdEvent('rewarded', 'show failed');
         publish({ showing: false, rewarded: 'failed' });
         settleReward?.(earned);
         settleReward = null;
@@ -214,7 +260,8 @@ export const adsAdapter: AdsAdapter = {
     publish({ showing: true, interstitial: 'showing' });
     return new Promise<boolean>((resolve) => {
       settleInterstitial = resolve;
-      void ad.show().catch(() => {
+      void ad.show().catch((error) => {
+        logAdEvent('interstitial', 'show failed', error);
         publish({ showing: false, interstitial: 'failed' });
         settleInterstitial?.(false);
         settleInterstitial = null;
@@ -246,7 +293,7 @@ export const adsAdapter: AdsAdapter = {
         interstitial?.destroy();
         rewarded = null;
         interstitial = null;
-        publish({ enabled: false });
+        publish({ enabled: false, rewarded: 'loading', interstitial: 'loading' });
         initialization = null;
         await adsAdapter.initialize();
       }
