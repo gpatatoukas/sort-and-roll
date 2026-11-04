@@ -20,6 +20,7 @@
       "autoIncrement": true,
       "environment": "production",
       "env": {
+        "FIREBASE_ANALYTICS_ENABLED": "true",
         "ANDROID_ADS_MODE": "live",
         "ANDROID_ADMOB_APP_ID": "ca-app-pub-2084024586103993~4553935558",
         "ANDROID_ADMOB_BANNER_ID": "ca-app-pub-2084024586103993/8719666416",

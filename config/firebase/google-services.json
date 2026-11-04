@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "916854305274",
+    "project_id": "pixel-pulse-5f9c2",
+    "storage_bucket": "pixel-pulse-5f9c2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:916854305274:android:82c02f7d94aa6039437443",
+        "android_client_info": {
+          "package_name": "com.pixelpulse.blockandroll"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAaNVPGe8aAJG-pcQoewb6NQHc2HDl6PEs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:916854305274:android:4adf2b170e070135437443",
+        "android_client_info": {
+          "package_name": "com.pixelpulse.sortandroll"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAaNVPGe8aAJG-pcQoewb6NQHc2HDl6PEs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

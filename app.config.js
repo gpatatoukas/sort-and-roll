@@ -1,7 +1,23 @@
 // Public AdMob configuration; each platform must use Sort and Roll's own IDs.
+const fs = require('fs');
 module.exports = ({ config }) => {
   const runtime = {};
   const appIds = {};
+  const firebaseAnalyticsEnabled = process.env.FIREBASE_ANALYTICS_ENABLED === 'true';
+  const firebaseAndroidConfig =
+    process.env.FIREBASE_ANDROID_CONFIG || './config/firebase/google-services.json';
+  const firebaseIosConfig = process.env.FIREBASE_IOS_CONFIG || '';
+  const hasFirebaseAndroidConfig =
+    !!firebaseAndroidConfig && fs.existsSync(firebaseAndroidConfig);
+  const hasFirebaseIosConfig = !!firebaseIosConfig && fs.existsSync(firebaseIosConfig);
+  const buildPlatform = process.env.EAS_BUILD_PLATFORM;
+  if (firebaseAnalyticsEnabled && buildPlatform !== 'ios') {
+    if (!hasFirebaseAndroidConfig)
+      throw new Error('Set FIREBASE_ANDROID_CONFIG to this app’s Firebase google-services.json file.');
+  }
+  const firebaseAnalyticsForBuild =
+    firebaseAnalyticsEnabled &&
+    (buildPlatform === 'ios' ? hasFirebaseIosConfig : hasFirebaseAndroidConfig);
   for (const platform of ['android', 'ios']) {
     const prefix = platform.toUpperCase();
     const mode = process.env[`${prefix}_ADS_MODE`] || 'test';
@@ -64,15 +80,31 @@ module.exports = ({ config }) => {
   const plugins = (config.plugins || []).filter(
     (p) => (Array.isArray(p) ? p[0] : p) !== 'react-native-google-mobile-ads',
   );
+  plugins.push(
+    'expo-image',
+    'expo-status-bar',
+    [
+      'expo-build-properties',
+      {
+        android: { enableMinifyInReleaseBuilds: false },
+        ios: { useFrameworks: 'dynamic' },
+      },
+    ],
+    ['react-native-google-mobile-ads', { ...appIds, delayAppMeasurementInit: true }],
+  );
+  if (firebaseAnalyticsForBuild)
+    plugins.push('@react-native-firebase/app', '@react-native-firebase/analytics');
   return {
     ...config,
-    plugins: [
-      ...plugins,
-      'expo-image',
-      'expo-status-bar',
-      ['expo-build-properties', { android: { enableMinifyInReleaseBuilds: false } }],
-      ['react-native-google-mobile-ads', { ...appIds, delayAppMeasurementInit: true }],
-    ],
+    android: {
+      ...config.android,
+      ...(hasFirebaseAndroidConfig ? { googleServicesFile: firebaseAndroidConfig } : {}),
+    },
+    ios: {
+      ...config.ios,
+      ...(hasFirebaseIosConfig ? { googleServicesFile: firebaseIosConfig } : {}),
+    },
+    plugins,
     extra: { ...config.extra, ...runtime },
   };
 };
