@@ -748,7 +748,6 @@ export default function SortScreen() {
         .then((p) => {
           if (alive) {
             loaded.current = true;
-            p = { ...p, ads: { ...p.ads, interstitialPending: false } };
             feedback.configure(p);
             setFlight(null);
             setQueuedFlight(null);
@@ -882,11 +881,16 @@ export default function SortScreen() {
     setInteractionsLocked(true);
     const expectedSession = session.current;
     try {
-      if (source.ads.interstitialPending) {
-        const next = { ...source, ads: { ...source.ads, interstitialPending: false } };
-        await save(next);
-        setProgress(next);
-        await ads.betweenLevels();
+      const rewardedThisCompletion = source.ads.rewardAtCompletion === source.completed - 1;
+      if (source.ads.interstitialPending && !rewardedThisCompletion) {
+        if (await ads.betweenLevels()) {
+          const next = { ...source, ads: { ...source.ads, interstitialPending: false } };
+          await save(next);
+          setProgress(next);
+        } else {
+          // Keep the due impression through this transition and retry at the next safe one.
+          await save(source);
+        }
       }
       if (session.current === expectedSession) action();
     } catch {
@@ -1582,7 +1586,7 @@ export default function SortScreen() {
                             ? enter(
                                 {
                                   ...current,
-                                  ads: { ...current.ads, interstitialPending: false },
+                                  ads: { ...current.ads },
                                 },
                                 mode,
                               )

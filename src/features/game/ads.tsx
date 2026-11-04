@@ -11,7 +11,7 @@ import { useFeedback } from './feedback-provider';
 import type { AdSnapshot } from '../../services/ads/types';
 type Ads = AdSnapshot & {
   watch: (grant: (transaction: string) => Promise<void>) => Promise<boolean>;
-  betweenLevels: () => Promise<void>;
+  betweenLevels: () => Promise<boolean>;
   privacy: () => Promise<void>;
 };
 const Context = createContext<Ads | null>(null);
@@ -53,10 +53,10 @@ export function AdsProvider({ children }: PropsWithChildren) {
       }
     },
     async betweenLevels() {
-      if (busy.current) return;
+      if (busy.current) return false;
       busy.current = true;
       try {
-        await adsAdapter.showInterstitial();
+        return await adsAdapter.showInterstitial();
       } finally {
         busy.current = false;
       }

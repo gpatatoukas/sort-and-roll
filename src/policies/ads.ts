@@ -44,6 +44,8 @@ export function earnedPower<
 export function completionAds(ads: AdProgress, completed: number): AdProgress {
   return {
     ...ads,
-    interstitialPending: completed % 10 === 0 && ads.rewardAtCompletion !== completed - 1,
+    interstitialPending:
+      ads.interstitialPending ||
+      (completed % 10 === 0 && ads.rewardAtCompletion !== completed - 1),
   };
 }
